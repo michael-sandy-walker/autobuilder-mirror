@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.walpro.autobuilder.analysis.structure.DefaultProjectStructureSummarizer;
+import com.walpro.autobuilder.analysis.structure.ProjectTypeNameInventory;
 import com.walpro.autobuilder.agent.evaluation.EvaluationInterpreter.InterpretationResult;
 import com.walpro.autobuilder.agent.evolution.model.EvolutionOutcome;
 import com.walpro.autobuilder.core.build.CompileErrorSymbolExtractor;
@@ -228,6 +229,16 @@ public class EvolutionProtocolContract {
 
     public static String getUserPrompt(CycleContextData input, InterpretationResult result, boolean divergent,
             int promptHeadroomTokens) {
+        return getUserPrompt(input, result, divergent, promptHeadroomTokens, false);
+    }
+
+    /**
+     * Main builder. {@code includeTypeNameInventory} (T4-BQ consumer 4) toggles the existing-type
+     * naming-consistency block; it is threaded from {@code autobuilder.evolution.naming-consistency.enabled}
+     * so the next run A/Bs it. All other overloads default it to {@code false}, preserving behaviour.
+     */
+    public static String getUserPrompt(CycleContextData input, InterpretationResult result, boolean divergent,
+            int promptHeadroomTokens, boolean includeTypeNameInventory) {
         StringBuilder prompt = new StringBuilder();
 
         String projectSummary = input.projectSummary();
@@ -455,6 +466,16 @@ public class EvolutionProtocolContract {
                     `%s`, put the new file there.
 
                 """.formatted(basePackage, basePackage, basePackage, basePackage));
+        }
+
+        // T4-BQ consumer (4): surface the project's already-declared type names (exceptions first)
+        // with a reuse-the-exact-name directive, so a local cycle stops minting a synonym for a
+        // concept that already exists on disk (the four-names-for-one-exception failure mode).
+        if (includeTypeNameInventory) {
+            String typeInventory = ProjectTypeNameInventory.asPromptBlock(input.previousOutput());
+            if (!typeInventory.isBlank()) {
+                prompt.append(typeInventory).append("\n");
+            }
         }
 
         String criteriaProgress = criteriaProgressBlock(input);

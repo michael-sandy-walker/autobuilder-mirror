@@ -20,6 +20,13 @@ autobuilder:
     # build.classifier.adaptive).
     package-consolidation:
       enabled: true
+    # T4-BQ consumer (4): surface the project's already-declared type names (exceptions first) to
+    # the evolution prompt with a "reuse the exact name, do not mint a synonym" directive. The
+    # 2026-06-17 test-authoring run minted four names for one exception across rewrites because each
+    # cycle was a local op with no link to what siblings already named; this is the inbound
+    # naming-consistency block. Code default false; enabled here so the next run A/Bs it.
+    naming-consistency:
+      enabled: true
   goal:
     migrate-to-graph: false
     sync-from-graph: true

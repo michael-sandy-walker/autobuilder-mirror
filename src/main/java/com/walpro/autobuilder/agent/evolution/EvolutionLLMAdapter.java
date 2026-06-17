@@ -17,7 +17,9 @@ import com.walpro.autobuilder.core.grounding.SymbolGroundingService;
 import com.walpro.autobuilder.core.lifecycle.CycleContextData;
 
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 
 @Slf4j
 @Component
@@ -31,6 +33,15 @@ public class EvolutionLLMAdapter {
     private final SymbolGroundingService groundingService;
     private final PackageConsolidationService packageConsolidationService;
     private final com.walpro.autobuilder.protocol.PromptTokenBudget promptTokenBudget;
+
+    /**
+     * T4-BQ consumer (4): off by default; enabled via {@code application.yml} so the next real run
+     * validates the existing-type naming-consistency block (same validate-in-next-run pattern as
+     * {@code package-consolidation.enabled}).
+     */
+    @Setter
+    @Value("${autobuilder.evolution.naming-consistency.enabled:false}")
+    private boolean namingConsistencyEnabled;
 
     private final EvolutionResponseParser parser = new EvolutionResponseParser(); // not injected
 
@@ -47,7 +58,7 @@ public class EvolutionLLMAdapter {
         var result = refreshed.evaluationInterpretation();
         String systemPrompt = EvolutionProtocolContract.getSystemPrompt();
         String userPrompt = EvolutionProtocolContract.getUserPrompt(refreshed, result, recombined,
-                promptTokenBudget.promptHeadroomTokens());
+                promptTokenBudget.promptHeadroomTokens(), namingConsistencyEnabled);
 
         LLMResponseResult<EvolutionOutcome> response = llmAgentProtocolInvoker.callWithValidation(
                 llmClient,

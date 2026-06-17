@@ -475,4 +475,54 @@ class EvolutionProtocolContractTest {
                 .doesNotContain("--- BUILD RESULT ---");
     }
 
+    // ------------------------------------------------------------------ //
+    // T4-BQ consumer (4): existing-type naming-consistency block           //
+    // ------------------------------------------------------------------ //
+
+    private static final int HEADROOM =
+            com.walpro.autobuilder.protocol.PromptTokenBudget.DEFAULT_PROMPT_HEADROOM_TOKENS;
+
+    private CycleContextData ctxWithOutput() {
+        return CycleContextData.builder()
+                .previousOutput(Map.of(
+                        "src/main/java/app/MaxLoansExceededException.java",
+                        "package app; public class MaxLoansExceededException extends RuntimeException {}",
+                        "src/main/java/app/Loan.java",
+                        "package app; public class Loan {}"))
+                .build();
+    }
+
+    @Test
+    void getUserPrompt_typeNameInventoryFlagOn_includesNamingConsistencyBlock() {
+        String prompt = EvolutionProtocolContract.getUserPrompt(
+                ctxWithOutput(), null, false, HEADROOM, true);
+
+        assertThat(prompt).contains("EXISTING PROJECT TYPES");
+        assertThat(prompt).contains("Exceptions already defined: MaxLoansExceededException");
+    }
+
+    @Test
+    void getUserPrompt_typeNameInventoryFlagOff_omitsNamingConsistencyBlock() {
+        String prompt = EvolutionProtocolContract.getUserPrompt(
+                ctxWithOutput(), null, false, HEADROOM, false);
+
+        assertThat(prompt).doesNotContain("EXISTING PROJECT TYPES");
+    }
+
+    @Test
+    void getUserPrompt_fourArgOverload_defaultsTypeNameInventoryOff() {
+        String prompt = EvolutionProtocolContract.getUserPrompt(
+                ctxWithOutput(), null, false, HEADROOM);
+
+        assertThat(prompt).doesNotContain("EXISTING PROJECT TYPES");
+    }
+
+    @Test
+    void getUserPrompt_typeNameInventoryFlagOn_noOutput_omitsBlock() {
+        String prompt = EvolutionProtocolContract.getUserPrompt(
+                baseContext(), null, false, HEADROOM, true);
+
+        assertThat(prompt).doesNotContain("EXISTING PROJECT TYPES");
+    }
+
 }
