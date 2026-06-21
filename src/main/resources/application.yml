@@ -25,10 +25,11 @@ autobuilder:
     # STOOD DOWN 2026-06-21 after a 3-pair A/B (see project_t4bq_naming_consistency_ab.md): the
     # block fires reliably but showed NO robust effect on its own metric (pair3 enabled invented
     # MORE exceptions than baseline, incl. synonyms of names the block was listing) and ZERO
-    # run-outcome benefit (0/6 fulfillments). The local model ignores the directive even when the
-    # canonical name is present, so the inbound prompt is the wrong layer — the lever is outbound
-    # enforcement (T4-AW SymbolReviewer) or a better local model. Flag back to false; tested code
-    # kept dormant for re-entry. Same disposition slice 1 (synthesize-members) got 2026-06-16.
+    # run-outcome benefit (0/6 fulfillments). What the runs establish is ONLY the negative result:
+    # this inbound block does not help. What WOULD help is unproven — and 0/6 regardless of synonym
+    # count suggests synonym-minting is a symptom of local-model capability, not the binding
+    # constraint. Flag back to false; tested code kept dormant. Same disposition slice 1
+    # (synthesize-members) got 2026-06-16.
     naming-consistency:
       enabled: false
   goal:
