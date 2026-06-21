@@ -21,12 +21,16 @@ autobuilder:
     package-consolidation:
       enabled: true
     # T4-BQ consumer (4): surface the project's already-declared type names (exceptions first) to
-    # the evolution prompt with a "reuse the exact name, do not mint a synonym" directive. The
-    # 2026-06-17 test-authoring run minted four names for one exception across rewrites because each
-    # cycle was a local op with no link to what siblings already named; this is the inbound
-    # naming-consistency block. Code default false; enabled here so the next run A/Bs it.
+    # the evolution prompt with a "reuse the exact name, do not mint a synonym" directive.
+    # STOOD DOWN 2026-06-21 after a 3-pair A/B (see project_t4bq_naming_consistency_ab.md): the
+    # block fires reliably but showed NO robust effect on its own metric (pair3 enabled invented
+    # MORE exceptions than baseline, incl. synonyms of names the block was listing) and ZERO
+    # run-outcome benefit (0/6 fulfillments). The local model ignores the directive even when the
+    # canonical name is present, so the inbound prompt is the wrong layer — the lever is outbound
+    # enforcement (T4-AW SymbolReviewer) or a better local model. Flag back to false; tested code
+    # kept dormant for re-entry. Same disposition slice 1 (synthesize-members) got 2026-06-16.
     naming-consistency:
-      enabled: true
+      enabled: false
   goal:
     migrate-to-graph: false
     sync-from-graph: true
