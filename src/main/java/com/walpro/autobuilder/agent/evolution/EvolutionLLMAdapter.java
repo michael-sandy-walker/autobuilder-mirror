@@ -43,6 +43,15 @@ public class EvolutionLLMAdapter {
     @Value("${autobuilder.evolution.naming-consistency.enabled:false}")
     private boolean namingConsistencyEnabled;
 
+    /**
+     * Prompt-salience (2026-06-22): cap the verbatim echo of the previous raw response (~64% of the
+     * evolution prompt) so the dedicated diagnostic blocks gain relative weight. Code default false;
+     * enabled via {@code application.yml} for the next-run validation.
+     */
+    @Setter
+    @Value("${autobuilder.evolution.prompt-compaction.enabled:false}")
+    private boolean promptCompactionEnabled;
+
     private final EvolutionResponseParser parser = new EvolutionResponseParser(); // not injected
 
     public CycleContextData evolve(CycleContextData context) throws IOException {
@@ -58,7 +67,7 @@ public class EvolutionLLMAdapter {
         var result = refreshed.evaluationInterpretation();
         String systemPrompt = EvolutionProtocolContract.getSystemPrompt();
         String userPrompt = EvolutionProtocolContract.getUserPrompt(refreshed, result, recombined,
-                promptTokenBudget.promptHeadroomTokens(), namingConsistencyEnabled);
+                promptTokenBudget.promptHeadroomTokens(), namingConsistencyEnabled, promptCompactionEnabled);
 
         LLMResponseResult<EvolutionOutcome> response = llmAgentProtocolInvoker.callWithValidation(
                 llmClient,

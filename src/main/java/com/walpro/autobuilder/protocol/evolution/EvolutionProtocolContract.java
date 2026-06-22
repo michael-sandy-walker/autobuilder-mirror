@@ -232,13 +232,28 @@ public class EvolutionProtocolContract {
         return getUserPrompt(input, result, divergent, promptHeadroomTokens, false);
     }
 
-    /**
-     * Main builder. {@code includeTypeNameInventory} (T4-BQ consumer 4) toggles the existing-type
-     * naming-consistency block; it is threaded from {@code autobuilder.evolution.naming-consistency.enabled}
-     * so the next run A/Bs it. All other overloads default it to {@code false}, preserving behaviour.
-     */
     public static String getUserPrompt(CycleContextData input, InterpretationResult result, boolean divergent,
             int promptHeadroomTokens, boolean includeTypeNameInventory) {
+        return getUserPrompt(input, result, divergent, promptHeadroomTokens, includeTypeNameInventory, false);
+    }
+
+    /**
+     * Main builder.
+     *
+     * <p>{@code includeTypeNameInventory} (T4-BQ consumer 4) toggles the existing-type
+     * naming-consistency block; threaded from {@code autobuilder.evolution.naming-consistency.enabled}.
+     *
+     * <p>{@code compactPreviousResponse} (prompt-salience, 2026-06-22) caps the verbatim echo of the
+     * previous cycle's raw response. Measured on a real run, that single block was ~3,056 tok / 64%
+     * of a 4,770-tok evolution prompt, drowning every diagnostic signal (the naming block was ~2.6%)
+     * 25:1. Its content is largely redundant — the current code state is already in Structure Summary
+     * + Diff Summary, and repetition is caught by dedicated signals — so capping it lifts the relative
+     * weight of every diagnostic block ~3x at once. Threaded from
+     * {@code autobuilder.evolution.prompt-compaction.enabled}. All other overloads default both flags
+     * to {@code false}, preserving behaviour.
+     */
+    public static String getUserPrompt(CycleContextData input, InterpretationResult result, boolean divergent,
+            int promptHeadroomTokens, boolean includeTypeNameInventory, boolean compactPreviousResponse) {
         StringBuilder prompt = new StringBuilder();
 
         String projectSummary = input.projectSummary();
@@ -280,7 +295,7 @@ public class EvolutionProtocolContract {
             formatGoalList(input.completedGoals()),
             projectSummary,
             diffSummary,
-            formatLastRawOutput(input.lastEvolutionOutcome())
+            formatLastRawOutput(input.lastEvolutionOutcome(), compactPreviousResponse)
         ));
 
         // T4-AN-3: surface ground-truth build state to the evolver so it cannot hallucinate
@@ -533,9 +548,33 @@ public class EvolutionProtocolContract {
                 .collect(Collectors.joining("\n"));
     }
 
+    /** Prompt-salience cap: keep this many leading lines of the previous raw response when compacting. */
+    static final int LAST_RESPONSE_MAX_LINES = 40;
+
     private static String formatLastRawOutput(EvolutionOutcome outcome) {
+        return formatLastRawOutput(outcome, false);
+    }
+
+    /**
+     * When {@code compact} is true and the previous raw response exceeds {@link #LAST_RESPONSE_MAX_LINES},
+     * keep only the leading lines (imports, declarations, the start of the change) and replace the rest
+     * with an elision note pointing at the structural blocks that carry the current state. This block was
+     * measured at ~64% of the whole prompt; the tail is the lowest-value, most-redundant content.
+     */
+    private static String formatLastRawOutput(EvolutionOutcome outcome, boolean compact) {
         if (outcome == null || outcome.rawResponse() == null) return "(none)";
-        return outcome.rawResponse().trim();
+        String raw = outcome.rawResponse().trim();
+        if (!compact) return raw;
+        String[] lines = raw.split("\n", -1);
+        if (lines.length <= LAST_RESPONSE_MAX_LINES) return raw;
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < LAST_RESPONSE_MAX_LINES; i++) {
+            sb.append(lines[i]).append("\n");
+        }
+        sb.append("... [").append(lines.length - LAST_RESPONSE_MAX_LINES)
+          .append(" more lines elided to keep this prompt focused — the current code state is in the ")
+          .append("Structure Summary and Diff Summary above, not in this echo of your last response] ...");
+        return sb.toString();
     }
 
     private static String interpretationContext(CycleContextData ctx) {

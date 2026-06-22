@@ -32,6 +32,13 @@ autobuilder:
     # (synthesize-members) got 2026-06-16.
     naming-consistency:
       enabled: false
+    # Prompt-salience (2026-06-22): the evolution prompt echoes the previous cycle's full raw response
+    # verbatim — measured at ~3,056 tok / 64% of a 4,770-tok prompt, drowning every diagnostic signal
+    # (naming block ~2.6%) 25:1. That echo is largely redundant (current state is in Structure Summary
+    # + Diff; repetition is caught by signals), so capping it to the leading lines lifts every
+    # diagnostic's relative weight ~3x. Code default false; enabled here so the next run validates it.
+    prompt-compaction:
+      enabled: true
   goal:
     migrate-to-graph: false
     sync-from-graph: true

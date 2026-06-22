@@ -525,4 +525,44 @@ class EvolutionProtocolContractTest {
         assertThat(prompt).doesNotContain("EXISTING PROJECT TYPES");
     }
 
+    // ------------------------------------------------------------------ //
+    // prompt-salience: compaction of the previous raw-response echo        //
+    // ------------------------------------------------------------------ //
+
+    private CycleContextData ctxWithRawResponse(int lines) {
+        StringBuilder raw = new StringBuilder();
+        for (int i = 1; i <= lines; i++) raw.append("rawline-").append(i).append("\n");
+        var outcome = new com.walpro.autobuilder.agent.evolution.model.EvolutionOutcome(
+                java.util.List.of(), java.util.List.of(), "msg", raw.toString().trim(), false);
+        return CycleContextData.builder().lastEvolutionOutcome(outcome).build();
+    }
+
+    @Test
+    void getUserPrompt_compactionOn_longResponse_elidesTail() {
+        String prompt = EvolutionProtocolContract.getUserPrompt(
+                ctxWithRawResponse(60), null, false, HEADROOM, false, true);
+
+        assertThat(prompt).contains("rawline-1");                 // head kept
+        assertThat(prompt).contains("more lines elided");          // elision note present
+        assertThat(prompt).doesNotContain("rawline-60");           // tail dropped
+    }
+
+    @Test
+    void getUserPrompt_compactionOff_longResponse_keepsFullEcho() {
+        String prompt = EvolutionProtocolContract.getUserPrompt(
+                ctxWithRawResponse(60), null, false, HEADROOM, false, false);
+
+        assertThat(prompt).contains("rawline-60");                 // full echo retained
+        assertThat(prompt).doesNotContain("more lines elided");
+    }
+
+    @Test
+    void getUserPrompt_compactionOn_shortResponse_unchanged() {
+        String prompt = EvolutionProtocolContract.getUserPrompt(
+                ctxWithRawResponse(10), null, false, HEADROOM, false, true);
+
+        assertThat(prompt).contains("rawline-10");                 // under the cap → kept whole
+        assertThat(prompt).doesNotContain("more lines elided");
+    }
+
 }
