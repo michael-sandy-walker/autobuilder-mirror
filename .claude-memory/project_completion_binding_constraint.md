@@ -77,3 +77,22 @@ Replaced the slow/noisy 75-min loop A/B with a direct single-call adherence eval
 **Not uniform — the honest detail:** already-returned 0/3→3/3 and loan-limit 1/3→3/3 (compaction flips them); but book-not-found 0/3→0/3 and member-store 0/3→0/3 were UNMOVED — the model minted the synonym (`NoSuchBookException`, `MemberRepository`) both ways. Those are strong training-prior names; the base model's naming prior overrides in-context facts, a different failure than dilution that compaction cannot fix (→ outbound deterministic rename, T4-AW direction).
 
 **Scope of the claim (do NOT overclaim — [[feedback-no-defensive-recast]], [[feedback-activity-not-progress]]):** PROXIMAL only — compaction makes the model attend to a diagnostic in a single call (~half the synonym-minting removed). It does NOT prove a full run fulfills more often (distal); and it does not fix prior-driven naming. It earns compaction staying on (flag true) and predicts diagnostics land more often. Method win: this eval is re-runnable in minutes as model/prompt change, vs a 5-hour loop batch — the right level to test per-prompt mechanisms.
+
+---
+
+## UPDATE 2026-06-23 — compaction DISTAL A/B: no measurable run-outcome benefit (proximal-but-inert)
+
+Controlled compaction ON vs OFF, test seed, 2 counterbalanced pairs, cycle-cap 40 + 1s delay (cheaper batch). Backups `/tmp/compaction-distal-ab/`.
+
+| pair | cond | OK-ratio | merges | files | tests | invented | edge | fulfilled |
+|---|---|---|---|---|---|---|---|---|
+| 1 | off | 0.47 | 11 | 10 | 0 | 0 | 0 | no |
+| 1 | on  | 0.57 | 7  | 26 | 6 | 0 | 0 | no |
+| 2 | on  | 0.35 | 13 | 10 | 2 | 0 | 0 | no |
+| 2 | off | 0.39 | 12 | 19 | 6 | 0 | 0 | no |
+
+Averages: OK-ratio on 0.46 / off 0.43 (+0.03, inside the on-condition's own 0.35–0.57 spread); merges on 10 / off 11.5; files on 18 / off 14.5; tests on 4 / off 3. **0/4 reached the completion edge, 0/4 fulfilled, invented=0 in ALL (not discriminating at capped scale).**
+
+**Verdict: compaction is proximally real but DISTALLY INERT.** The single-call eval proved it lifts diagnostic adherence 0.08→0.50; this full-run comparison shows that does not move the run outcome — every metric is inside the noise. By [[feedback-activity-not-progress]] (validate the outcome moved, not activation) compaction is NOT a completion lever. It is a cheap, proximally-validated, distally-neutral prompt cleanup — keep-on is defensible as cost reduction, but claim only the proximal win.
+
+**The real redirect:** 4 more capped runs, 0 reached the edge — runs stall PARTIAL (10–26 files, planner not driving full spec coverage; same T1-EI/coverage stall as the 2026-06-22 user run). The binding constraint on completion is UPSTREAM of prompt content — drive-to-completion / coverage, not salience. That is the next thing to investigate (NOT yet asserted as THE lever — corpus shows the coverage/backlog-churn family is common but hard amputation is only ~3%; needs its own grounded diagnosis before any build).
