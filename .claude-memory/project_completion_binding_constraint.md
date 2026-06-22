@@ -1,6 +1,6 @@
 ---
 name: project-completion-binding-constraint
-description: "2026-06-22 investigation: the binding constraint on GOAL_FULFILLED is keeping a large interdependent (main+test) build compiling, NOT naming or vague 'model capability'. 0/7 test-requiring-seed runs fulfilled; build is red 60-83% of cycles, dominated by cross-file structural errors; completion edge never reached."
+description: "2026-06-22 investigation: the binding constraint on GOAL_FULFILLED is keeping a large interdependent (main+test) build compiling, NOT naming or vague 'model capability'. build red 60-83% of cycles, dominated by cross-file structural errors. REFINED same day by the test-compile-coupling A/B: the '0/7 never fulfills' claim was superseded — a run fulfilled by writing ZERO tests (test gate passes vacuously). The test requirement is neither reliably achievable nor enforced. See update block at end."
 metadata:
   node_type: memory
   type: project
@@ -32,3 +32,24 @@ metadata:
 **What is NOT established:** which (if any) lever moves the outcome; whether main-code incoherence would persist even without the test requirement at higher complexity. Next verification if pursued: an A/B on the test-compile coupling (probe = `mvn compile` vs `mvn test-compile`) on the test seed, measuring whether main reaches a stable COMPILE_OK and the edge is reached.
 
 **Corrects:** the roadmap's frequent "remaining variance is local-model last-mile capability" shorthand — true but unspecific; the measurable constraint is build-greenness of a large interdependent tree, gated hardest by the test-authoring workload.
+
+---
+
+## UPDATE 2026-06-22 — test-compile-coupling A/B: inconclusive on its question, but corrects the headline
+
+Ran the proposed A/B (probe `mvn test-compile` [coupled] vs `mvn compile` [decoupled], test-authoring seed held constant, 2 counterbalanced pairs, single jar, reset-on-start verified firing — `SystemResetConfig` purges goal graph + wipes output/mutations/snapshots/meta each run, so all 4 were clean starts). Backups `/tmp/test-compile-coupling-ab/`.
+
+| run | config | terminal | cyc | OK-ratio | test files | note |
+|---|---|---|---|---|---|---|
+| pairA | coupled | paused | 36 | 0.48 | wrote tests | thrashed |
+| pairA | decoupled | paused | 20 | 0.86 | few (8 files, barely restructured) | high ratio partly = built little |
+| pairB | decoupled | GIVEN_UP | 4 | 0.00 | test file in src/main | collapsed fast |
+| pairB | coupled | **GOAL_FULFILLED** | 4 | 0.83 | **0** | real main code, no tests |
+
+**Inconclusive on the coupling question.** The dominant variance is **whether the model engages with tests at all** (stochastic per run), which swamps the probe-coupling variable: same config + same seed produced both a 36-cycle thrash (pairA/coupled, wrote tests) and a 4-cycle fulfillment (pairB/coupled, skipped tests). Run-to-run variance 4–36 cycles. More runs of this design would measure the confound, not the question.
+
+**The real finding (well-evidenced) — the test requirement is neither achievable nor enforced.** The system faces a fork: (a) attempt tests → cross-file coherence collapses, build stays red, never reaches the edge; or (b) skip tests → `mvn test` gate returns COMPILE_OK *vacuously* (no tests to run), criteria verify against real main code, root COMPLETED. pairB/coupled took (b): 0 test files, genuine main artifact (ISBN `\d{13}` `@Pattern`, max-3-loans `>=3` both present), fulfilled in 4 cycles. **The seed's explicit "provide JUnit/MockMvc tests" requirement is silently unenforced when the model writes none.** Not a hollow false-completion (main is real) — an *unenforced-requirement* gap.
+
+**Corrects the earlier claim** "0/7 → test authoring is the wall": completion CAN occur on the test seed, by skipping tests. So the constraint isn't "can't ever finish with tests"; it's that working tests are a fork the system neither reliably clears nor is forced to clear.
+
+**Candidate next steps — HYPOTHESES, not asserted ([[feedback-no-defensive-recast]]):** (1) the test gate should not pass vacuously when the seed requires tests and none exist (enforce test *presence*, not just `mvn test` exit code) — addresses fork (b); but enforcing it would just push runs onto fork (a) where they currently collapse, so (1) alone likely converts false-passes into honest non-completions, not into fulfillments. (2) A clean coupling A/B would need to control test-engagement (e.g., a seed phase that mandates tests only after main COMPILE_OK), which is itself the "scope test-authoring as a later phase" idea. (3) Whether decoupling helps is still genuinely unknown. Not building anything without a steer.
