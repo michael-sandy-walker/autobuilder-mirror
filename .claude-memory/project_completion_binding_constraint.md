@@ -96,3 +96,24 @@ Averages: OK-ratio on 0.46 / off 0.43 (+0.03, inside the on-condition's own 0.35
 **Verdict: compaction is proximally real but DISTALLY INERT.** The single-call eval proved it lifts diagnostic adherence 0.08→0.50; this full-run comparison shows that does not move the run outcome — every metric is inside the noise. By [[feedback-activity-not-progress]] (validate the outcome moved, not activation) compaction is NOT a completion lever. It is a cheap, proximally-validated, distally-neutral prompt cleanup — keep-on is defensible as cost reduction, but claim only the proximal win.
 
 **The real redirect:** 4 more capped runs, 0 reached the edge — runs stall PARTIAL (10–26 files, planner not driving full spec coverage; same T1-EI/coverage stall as the 2026-06-22 user run). The binding constraint on completion is UPSTREAM of prompt content — drive-to-completion / coverage, not salience. That is the next thing to investigate (NOT yet asserted as THE lever — corpus shows the coverage/backlog-churn family is common but hard amputation is only ~3%; needs its own grounded diagnosis before any build).
+
+---
+
+## UPDATE 2026-06-23 (later) — T4-BN-2 gate-vs-steer A/B CONTRADICTS the freeze diagnosis
+
+Built the steer-not-gate fix (78155d9) on the diagnosis "the per-cycle test-compile GATE freezes main evolution → caused the 06-17→06-23 cliff." A counterbalanced gate-vs-steer A/B (2 pairs, cycle-cap 40, test seed; backups /tmp/t4bn2-validation/) does NOT support it:
+
+| pair | cond | terminal | cyc | merges | files | tests | edge | probeERR | testPathErrs |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | legacy-gate | GIVEN_UP@8 | 8 | 2 | 3 | 0 | 0 | 1 | **0** |
+| 1 | fix-steer | cap40 | 40 | 8 | 22 | 6 | 2 | 17 | 108 |
+| 2 | fix-steer | paused@24 | 24 | 7 | 25 | 6 | 0 | 16 | 271 |
+| 2 | legacy-gate | cap40 | 40 | 4 | 23 | 6 | 0 | 24 | **337** |
+
+- **The dramatic pair1 contrast was an artifact:** pair1/legacy-gate collapsed at 8 cyc with 0 test-path errors — gave up early for reasons unrelated to test-compile; NOT a "freeze signature" (I wrongly called it one).
+- **Gate-mode does NOT freeze:** pair2/legacy-gate hit 337 test-path errors (the exact freeze condition) yet ran to cap and built 23 files + 6 tests. Gate-mode keeps merging main-only mutations while test-bearing ones are rejected.
+- **No outcome separation:** both conditions ~22-25 files + 6 tests; neither reached the edge reliably; neither fulfilled. The fix fires (steered 3-12×) but shows NO demonstrated run-outcome benefit.
+
+**Correction:** the freeze mechanism is real IN CODE (a test-only break does reject the mutation) but is NOT load-bearing on the outcome, and removing it does not move fulfillment. The 06-17 cliff is most parsimoniously "test-requiring goals are simply harder" (must also author working tests + deps), NOT the test-compile gate. This is the SAME failure mode as the naming/compaction work: a mechanistically-real change that is distally inert ([[feedback-activity-not-progress]], [[feedback-no-defensive-recast]], [[feedback-verify-diff-is-substantive]]). The pair-1 excitement was caught and retracted before it was reported as a win.
+
+**Disposition:** keep the steer fix as a principled correctness change (a main-green mutation shouldn't be discarded over a test that may be pre-existing or ahead-of-main; flag-gated, harmless) BUT drop the claim it fixes the cliff. T4-BN-3 (focused test-repair) inherits a weakened rationale — its one independently-justified piece is the deterministic "ensure test deps in pom" step, which targets the dominant REAL error (missing Mock/Test/ExtendWith deps). Get a steer from the user before building it.
