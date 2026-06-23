@@ -117,3 +117,16 @@ Built the steer-not-gate fix (78155d9) on the diagnosis "the per-cycle test-comp
 **Correction:** the freeze mechanism is real IN CODE (a test-only break does reject the mutation) but is NOT load-bearing on the outcome, and removing it does not move fulfillment. The 06-17 cliff is most parsimoniously "test-requiring goals are simply harder" (must also author working tests + deps), NOT the test-compile gate. This is the SAME failure mode as the naming/compaction work: a mechanistically-real change that is distally inert ([[feedback-activity-not-progress]], [[feedback-no-defensive-recast]], [[feedback-verify-diff-is-substantive]]). The pair-1 excitement was caught and retracted before it was reported as a win.
 
 **Disposition:** keep the steer fix as a principled correctness change (a main-green mutation shouldn't be discarded over a test that may be pre-existing or ahead-of-main; flag-gated, harmless) BUT drop the claim it fixes the cliff. T4-BN-3 (focused test-repair) inherits a weakened rationale — its one independently-justified piece is the deterministic "ensure test deps in pom" step, which targets the dominant REAL error (missing Mock/Test/ExtendWith deps). Get a steer from the user before building it.
+
+---
+
+## UPDATE 2026-06-23 (drive-to-fulfillment loop) — the PLAIN happy path has regressed; not my flags
+
+Drove toward GOAL_FULFILLED, 3 iterations, all stalled on the SAME main cross-file coherence wall:
+- iter1 (test seed, all fixes): GIVEN_UP @33cyc, 101 cannot-find-symbol, 0 controllers, never reached the test layer. (Caught my own GAV "fix" hypothesis being wrong — the pom self-corrected to spring-boot-starter-validation; validation was transient churn.)
+- iter2 (PLAIN seed, all fixes): convergence stall @23cyc, 368 cannot-find-symbol, 0 controllers, 9 OK/55 ERR.
+- iter3 (PLAIN seed, compaction OFF + ensure-deps OFF = ~06-17 baseline): convergence stall @24cyc, 250 cannot-find-symbol, 0 controllers, 13 OK/38 ERR.
+
+**Key finding: the plain (no-test) seed — which fulfilled 3/3 on 06-17 and 40+ times historically — now stalls on main-coherence, AND it is NOT caused by this session's flags (compaction OFF did not restore it).** Errors are genuine model incoherence (referencing real project types across files without resolving: `class MemberService` ×48, `class BookService` ×34, `class Book`, `method getMemberById`/`getBookById`). Model is qwen3-coder:30b (configured + present on endpoint).
+
+**So the regression is below my flags** — candidates: (a) local model/environment drift since 06-17 (local-first: can't swap), (b) a NON-flag code change in the repo since 06-17 (bisectable/fixable), (c) high variance (less likely — 3 consecutive 0-controller stalls). **Decisive next test (not yet run): build the jar at the last 06-17 commit (`12b4626`) and run the plain seed.** old-jar fulfills + new-jar stalls ⇒ in-repo code regression (bisect it); both stall ⇒ environment/model drift (same code fulfilled 06-17, so the model/env changed). **Stopped the auto-loop here rather than grind into a wall my changes don't touch ([[feedback-activity-not-progress]] at the loop scale).**
