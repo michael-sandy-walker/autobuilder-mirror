@@ -1,5 +1,6 @@
 package com.walpro.autobuilder.core.lifecycle;
 
+import com.walpro.autobuilder.core.build.RecurringDefectTracker;
 import com.walpro.autobuilder.goal.GoalPlannerService;
 import com.walpro.autobuilder.observability.behaviour.BehaviourLogger;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,19 @@ public class RootConvergenceTracker {
     @Autowired(required = false)
     private BehaviourLogger behaviourLogger;
 
+    /**
+     * Optional run-level recurring-defect state (T2-EF). When a single missing-type defect dominates
+     * the run, a closure-edge injection is the <em>symptom</em> of that stuck defect — the gate
+     * re-injecting work for the thing that will not compile — not genuine distance-to-done, so it
+     * must not reset the stall counter. The loop already computes this "I am stuck on the same thing"
+     * state every cycle; before this it was never consulted at the halt decision, so injection churn
+     * kept the counter pinned and runs ground to the wall clock (2026-07-11 churn anatomy). Null in
+     * pure-unit tests → treated as "no defect dominating", preserving the reset-on-injection path.
+     */
+    @Setter
+    @Autowired(required = false)
+    private RecurringDefectTracker recurringDefectTracker;
+
     /** Consecutive cycles without root progress before the loop halts for review. */
     @Setter
     @Value("${autobuilder.deadlock.root-convergence-cycle-limit:20}")
@@ -77,11 +91,23 @@ public class RootConvergenceTracker {
         // the identical injection in run 4b was fixed in-loop and led to fulfillment. Bounded:
         // T1-DE drops GIVEN_UP-paraphrase re-injections, so a failing item cannot reset forever.
         if (injectionsNow != lastInjectionCount) {
-            log.info("T4-I: closure edge injected {} new work item(s) since the last check — counting as root progress, not stall.",
-                    injectionsNow - lastInjectionCount);
-            lastInjectionCount = injectionsNow;
-            cyclesSinceProgress = 0;
-            return context;
+            if (defectDominating()) {
+                // The closure edge re-injected work for a defect that dominates the whole run — the
+                // gate keeps naming the same thing that will not compile. That is the stall's
+                // SYMPTOM, not progress (2026-07-11: churn runs ground to the wall clock precisely
+                // because this reset kept firing on re-injected unfixable work). Absorb the counter
+                // so we do not re-log every cycle, but let the stall counter keep climbing to the
+                // existing verify-before-pause checkpoint.
+                log.warn("T4-I: closure edge injected {} work item(s) while a recurring defect dominates the run — churn, not progress; not resetting the stall counter.",
+                        injectionsNow - lastInjectionCount);
+                lastInjectionCount = injectionsNow;
+            } else {
+                log.info("T4-I: closure edge injected {} new work item(s) since the last check — counting as root progress, not stall.",
+                        injectionsNow - lastInjectionCount);
+                lastInjectionCount = injectionsNow;
+                cyclesSinceProgress = 0;
+                return context;
+            }
         }
 
         cyclesSinceProgress++;
@@ -118,12 +144,18 @@ public class RootConvergenceTracker {
             // work items just now — madeProgress() only sees promotions, so re-check the
             // injection counter before halting on work the loop was handed this very cycle.
             injectionsNow = goalPlannerService.countClosureEdgeInjections();
-            if (injectionsNow != lastInjectionCount) {
+            if (injectionsNow != lastInjectionCount && !defectDominating()) {
                 log.info("T4-I: verify-before-pause promoted nothing, but the closure edge injected {} new work item(s) — not halting.",
                         injectionsNow - lastInjectionCount);
                 lastInjectionCount = injectionsNow;
                 cyclesSinceProgress = 0;
                 return context;
+            }
+            if (injectionsNow != lastInjectionCount) {
+                // A fresh injection landed, but a recurring defect dominates the run: it is churn for
+                // the same unfixable work, not distance-to-done. Absorb the counter and halt.
+                log.warn("T4-I: verify-before-pause saw a fresh injection while a recurring defect dominates the run — churn, not progress; halting for review.");
+                lastInjectionCount = injectionsNow;
             }
             log.error("T4-I: root convergence stall — {} consecutive cycles without a new completed-with-merge subgoal (count frozen at {}); verify-before-pause found nothing to promote. Pausing for review.",
                     cyclesSinceProgress, progressNow);
@@ -139,5 +171,18 @@ public class RootConvergenceTracker {
                     cyclesSinceProgress, cycleLimit, progressNow);
         }
         return context;
+    }
+
+    /**
+     * True when the run's recurring-defect tracker reports a single missing-type defect dominating
+     * (strict majority of missing-type observations, spanning ≥2 subgoals, seen recently — the
+     * tracker's own relative trigger). Null tracker (pure-unit tests) → false, preserving the
+     * pre-existing reset-on-injection behaviour. This does not add a new halt path: the existing
+     * 20-cycle limit and verify-before-pause checkpoint are unchanged — it only stops injection
+     * churn from resetting the counter before the counter can reach them.
+     */
+    private boolean defectDominating() {
+        return recurringDefectTracker != null
+                && recurringDefectTracker.dominantDefect().isPresent();
     }
 }

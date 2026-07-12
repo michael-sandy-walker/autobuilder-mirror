@@ -1,7 +1,9 @@
 package com.walpro.autobuilder.core.lifecycle;
 
+import com.walpro.autobuilder.core.build.RecurringDefectTracker;
 import com.walpro.autobuilder.goal.GoalPlannerService;
 import com.walpro.autobuilder.observability.behaviour.BehaviourLogger;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +25,7 @@ class RootConvergenceTrackerTest {
 
     @Mock private GoalPlannerService goalPlannerService;
     @Mock private BehaviourLogger behaviourLogger;
+    @Mock private RecurringDefectTracker recurringDefectTracker;
 
     private RootConvergenceTracker tracker;
 
@@ -225,5 +228,49 @@ class RootConvergenceTrackerTest {
         }
 
         assertThat(com.walpro.autobuilder.core.lifecycle.DerivedFacts.systemPaused(result)).isTrue();
+    }
+
+    @Test
+    void injectionChurn_whileARecurringDefectDominates_doesNotReset_andHalts() {
+        // The 2026-07-11 churn signature: completed-with-merge frozen, the closure edge re-injects
+        // work every cycle for the same unfixable defect. Before this fix that injection reset the
+        // stall counter forever and runs ground to the wall clock. With a dominating defect the
+        // injection is the SYMPTOM, not progress — the counter must keep climbing and halt.
+        when(goalPlannerService.countCompletedSubgoalsWithMerges()).thenReturn(29);
+        when(goalPlannerService.countClosureEdgeInjections()).thenReturn(0, 0, 1, 2, 3);
+        when(goalPlannerService.verifyAndPromoteBeforePause(any()))
+                .thenReturn(new VerifyBeforePauseResult(false, 0));
+        when(recurringDefectTracker.dominantDefect())
+                .thenReturn(Optional.of(new RecurringDefectTracker.DominantDefect(
+                        "CANNOT_FIND_SYMBOL|LoanRepository", 0.8, 3, false)));
+        tracker.setRecurringDefectTracker(recurringDefectTracker);
+
+        tracker.track(ctx(false)); // baseline resync (progress 0 -> 29)
+        CycleContextData result = null;
+        for (int i = 0; i < 3; i++) {
+            result = tracker.track(ctx(false)); // injection climbs each cycle but never resets
+        }
+
+        assertThat(com.walpro.autobuilder.core.lifecycle.DerivedFacts.systemPaused(result)).isTrue();
+        verify(behaviourLogger).systemPaused(any(), eq("root-convergence-stall"), anyInt());
+    }
+
+    @Test
+    void injectionChurn_whenNoDefectDominates_stillResets_evenWithTrackerPresent() {
+        // Guard: the fix must bite ONLY on a dominating defect. Tracker present but reporting no
+        // dominant defect → a genuine closure-edge injection still resets, exactly as before.
+        when(goalPlannerService.countCompletedSubgoalsWithMerges()).thenReturn(29);
+        when(goalPlannerService.countClosureEdgeInjections()).thenReturn(0, 0, 1, 1, 1);
+        when(recurringDefectTracker.dominantDefect()).thenReturn(Optional.empty());
+        tracker.setRecurringDefectTracker(recurringDefectTracker);
+
+        tracker.track(ctx(false)); // baseline 0 -> 29, reset
+        tracker.track(ctx(false)); // stall 1
+        tracker.track(ctx(false)); // injection arrives, no dominant defect -> reset
+        tracker.track(ctx(false)); // stall 1
+        CycleContextData result = tracker.track(ctx(false)); // stall 2 — still below limit 3
+
+        assertThat(com.walpro.autobuilder.core.lifecycle.DerivedFacts.systemPaused(result)).isFalse();
+        verify(behaviourLogger, never()).systemPaused(any(), any(), anyInt());
     }
 }
