@@ -172,6 +172,12 @@ are still on disk, and fix the scoring sheet. Offline.
 
 ## Direction 3 -- building itself, measured before it is trusted
 
+**Correction 2026-11-17: the single-ticket rung of this direction EXISTS -- T6-T, the ticket ladder (closed;
+`scripts/ladder_case.py`, ten of the archive's targets).** Bands 1-3 measured (band 3 `ladder-rows` fulfilled 2 of 3,
+twice; `ladder-grind` 47-48/51, never fulfilled; band 4 never cut; withheld-test variants exist). What is new here is
+only: a CHAIN of tickets on the loop's own previous result, how different the rebuilt code is, and the loop choosing
+the order. The text below predates this correction.
+
 **The material is already there: 534 ticket commits with tests.** For each, the commit before the fix is the starting
 state, the ticket's body AS IT STOOD IN THAT PARENT COMMIT (`git show <parent>:.claude-memory/roadmap.md` -- so
 nothing written after the fix leaks in) is the input, and the tests the commit added are the judge, together with the
