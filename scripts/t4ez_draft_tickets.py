@@ -367,7 +367,52 @@ def prepare_reading():
     print(f"{len(corpus)} questions -> {path}")
 
 
+DECISIONS_QUESTION = """A reviewer read the evidence of one Autobuilder run and drafted the ticket below, claiming that
+Autobuilder's OWN code misbehaved (Autobuilder evolves software projects with language models; the logs are its
+logs, the project files are the target project it worked on, roadmap.md is Autobuilder's own roadmap of tickets and
+decisions as it stood then, digest.txt is the summary of the run the reviewer read).
+
+Check the draft. Keep it only if BOTH hold:
+(a) the observed misbehaviour actually happened as described -- check it in the logs, the files or digest.txt
+(what came before what, a status, a count, what a file or test really contains);
+(b) it is a fault, not the intended design. Whether it is a fault or the intended design is decided by the
+project's RECORDED DECISIONS, not by your opinion: search roadmap.md for the ticket or rule that governs this
+behaviour. If a decision made the behaviour so on purpose and the run does not show that decision's own premise
+failing, it is the design: DROP. If the behaviour contradicts a recorded decision, or its effect was wrong given
+the facts and no decision makes it intended, it is a fault: KEEP. If a ticket already covers it, KEEP and name it.
+
+DRAFT:
+{draft}
+
+Your #Answer must begin with the word KEEP or DROP, then the reason, citing the log, file and roadmap.md lines it
+rests on."""
+
+
+def prepare_decisions():
+    base = os.path.expanduser("~/.autobuilder/t4ez/check-inputs")
+    reading = json.load(open(os.path.join(base, "corpus.json")))
+    out = []
+    for q in reading:
+        name = q["id"].split("#")[0]
+        case = CASES[name]
+        d = os.path.join(base, name)
+        at = case["roadmap_at"] or roadmap_at_date(case["archive"][:10] + " " + case["archive"][11:].replace("-", ":"))
+        rp, dp = os.path.join(d, "roadmap.md"), os.path.join(d, "digest.txt")
+        if not os.path.exists(rp):
+            open(rp, "w").write(git("show", f"{at}:.claude-memory/roadmap.md"))
+            open(dp, "w").write(digest(case))
+        draft = q["question"].split("DRAFT:\n", 1)[1].split("\n\nYour #Answer", 1)[0]
+        logs = dict(q["logs"], **{"roadmap.md": rp, "digest.txt": dp})
+        out.append({"id": q["id"], "question": DECISIONS_QUESTION.replace("{draft}", draft), "logs": logs, "tree": q["tree"]})
+    path = os.path.join(base, "corpus-decisions.json")
+    json.dump(out, open(path, "w"), indent=1)
+    print(f"{len(out)} questions -> {path}; sources per question: {list(out[0]['logs'])}")
+
+
 def main():
+    if "--prepare-decisions" in sys.argv:
+        prepare_decisions()
+        return
     if "--prepare-reading" in sys.argv:
         prepare_reading()
         return

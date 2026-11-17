@@ -90,7 +90,7 @@ def cases_of(run_dir, task):
             p = e.get("payload") or {}
             final[p.get("goalId")] = (p.get("to"), p.get("reason") or "")
     # per-mutation facts
-    files, heur, scored, probe = {}, collections.defaultdict(set), {}, {}
+    files, heur, scored, probe, why = {}, collections.defaultdict(set), {}, {}, {}
     for e in evs:
         p = e.get("payload") or {}
         k = e.get("event")
@@ -102,6 +102,7 @@ def cases_of(run_dir, task):
             scored[p.get("mutationId")] = p.get("llmState")
         elif k == "mutation_rejected":
             probe[p.get("mutationId")] = p.get("probeResult")
+            why[p.get("mutationId")] = p.get("reason") or ""
     # event order matters: a plan or halt counts only between the situation and the next proposal
     proposals = []      # (event index, base cycle, files)
     plans, halts = [], []
@@ -134,14 +135,15 @@ def cases_of(run_dir, task):
             mid = p.get("mutationId")
             key = ("rejected", probe.get(mid) or "-", tuple(sorted(heur.get(mid, ()))),
                    "overridden" if scored.get(mid) and scored.get(mid) != "REJECTED" else "model agreed")
-            situations.append((idx, b, sub[b], key, files.get(mid, (None, ()))[1]))
+            situations.append((idx, b, sub[b], key, files.get(mid, (None, ()))[1], why.get(mid, "")))
         elif k == "closure_refused":
-            situations.append((idx, b, sub[b], ("closure refused", p.get("gate")), None))
+            situations.append((idx, b, sub[b], ("closure refused", p.get("gate")), None, p.get("reason") or ""))
         elif k == "llm_response_discarded":
-            situations.append((idx, b, sub[b], ("response discarded", p.get("role"), norm_reason(p.get("reason"))), None))
+            situations.append((idx, b, sub[b], ("response discarded", p.get("role"), norm_reason(p.get("reason"))), None,
+                               p.get("reason") or ""))
 
     out = []
-    for sidx, b, g, key, ref in situations:
+    for sidx, b, g, key, ref, reason in situations:
         i = pos[b]
         if ref is None:   # the last proposal on this subgoal before the situation
             ref = ()
@@ -186,7 +188,7 @@ def cases_of(run_dir, task):
                 r2 = True
                 break
         out.append({"task": task, "family": shp.family_of(task), "run": os.path.basename(run_dir), "cycle": b,
-                    "goal": g, "key": key, "action": action, "r1": r1, "r2": r2})
+                    "goal": g, "key": key, "action": action, "r1": r1, "r2": r2, "reason": reason})
     return out
 
 
