@@ -1,233 +1,104 @@
 ---
 name: project-outer-loop-inward-design-note
-description: "2026-11-16 design note (Opus 5.5, session 40, at the user's word): move the outer loop (user + Claude) into Autobuilder -- (1) problem memory across runs AND projects, (2) a run that ends in a draft diagnosis, (3) building itself, measured by replaying closed tickets. Knowledge = run records + .claude-memory, with provenance. Proposes tickets; files none. Read before any cross-run, self-diagnosis or self-application work."
+description: "Design note for T4-EZ (2026-11-16, condensed 2026-11-17): Autobuilder runs its own development cycle -- read the roadmap, pick or create a ticket, implement, verify, record against the ID, propose the next. Unit of similarity = a CASE (situation -> action -> result); finding / fact-checking / fault-or-design judged by different authorities; the ladder (T6-T) is the implementation rung. Read before any cross-run, self-diagnosis, ticket-proposal or self-application work."
 metadata:
   type: project
 ---
 
 # Moving the outer loop inward
 
-**Status: design note, 2026-11-16 (Opus 5.5, session 40). Nothing filed, nothing built.** Written at the user's
-"Yes, write the design note" after the user's direction: *"Atm we're still busy a lot with the external loop between
-you and me, while in the long term, Autobuilder should take over that part more and more. This can only be done with
-an introspection capability regarding the question 'have I addressed or solved any similar problems already in other
-similar runs?'. Also, Autobuilder should get more into the direction of building itself in the mid-future. The open
-tickets do not address these things sufficiently anymore."* Two refinements by the user on the first draft of the
-idea: similar problems means **other projects too**, not only other runs of the same project; and the knowledge is
-**a combination of run knowledge and memory knowledge** (`.claude-memory`).
+**Status (2026-11-17):** design note for the umbrella T4-EZ. Condensed on 2026-11-17 at the user's word; the first
+version (three directions as planned on 2026-11-16) is in git at `c9b44af8`, the measurement record in
+[[project-t4ez-measurements]].
 
-A ChatGPT-written handoff (`~/Downloads/Autobuilder-North-Star-Handoff.md`) was shown to me and NOT adopted
-(the user: "don't take over anything"); it mostly restates [[project-introspection-as-north-star]] and
-[[project-living-project-vision]].
+## The goal
 
-## Why now -- the diagnosis of the queue
+The user (2026-11-16): *"Atm we're still busy a lot with the external loop between you and me, while in the long term,
+Autobuilder should take over that part more and more. This can only be done with an introspection capability regarding
+the question 'have I addressed or solved any similar problems already in other similar runs?'. Also, Autobuilder
+should get more into the direction of building itself in the mid-future."* Similar problems include OTHER PROJECTS;
+the knowledge is **run knowledge + memory knowledge** (`.claude-memory`).
 
-Every open ticket on 2026-11-16 (T2-FN, T4-DD, T4-DS, T4-EU, T4-EY, T6-H) was found by the outer loop: the user and
-Claude reading a run, finding the grind, naming the invented fact, filing the ticket, building the fix. The loop wrote
-none of them. Each fix makes the loop more reliable and leaves the outer loop exactly as large as before. The
-north-star note already names the destination (a loop that consults a self-model before acting; the fixpoint
-`improve(Autobuilder, "improve how you improve")` with the referee OUTSIDE the copy). What is missing is a path on the
-roadmap from here to there. Three directions, one chain:
+Sharpened by the user on 2026-11-17: Autobuilder runs the **whole development cycle** itself -- read the roadmap, pick
+or create a ticket, implement it, verify it, record the outcome against the ticket ID, propose the next (*"build on
+its own based on the roadmap and even create and progress on tickets by itself"*). On filing, every open ticket had
+been found by the outer loop and none by the loop. The north-star destination is [[project-introspection-as-north-star]].
+
+## The cycle and what each step needs
 
 ```
-  (1) problem memory          (2) draft diagnosis            (3) building itself
-  "have I met this before,    "what went wrong in this run,  "fix it -- on a copy of me,
-   here or elsewhere?"   -->   and which ticket is it?" -->   judged from outside"
+  roadmap --> pick / create a ticket --> implement on a copy --> verify --> record against the ID --> propose next
+                     ^                                                                                     |
+                     +------------------------- the user decides (authority widens with competence) -------+
 ```
 
-(1) is the record, (2) is the outer loop's analysis done by the loop with that record, (3) is the outer loop's
-building done by the loop. Each is useful alone; each makes the next one cheaper.
+**Propose (find what to change).** From a finished run: the roadmap as it stands plus a structural digest of the run
+(no model: run-end report, stuck ledger, diagnosis requests, refusals, rejection reasons, pauses / rewinds, input
+decisions, narrator lines). Measured on 7 tickets we filed from 3 runs + 2 clean controls: the loop's model FINDS
+(5 of 7, 3 with the right cause) without reasoning, with false alarms. Three different authorities are needed:
+- **finding** -- the model over the digest, no reasoning (it finds; reasoning makes it timid);
+- **facts** -- reading: the loop's own `LogInvestigator` probing the logs and files (it re-found T1-GM's cause by
+  opening the test the gate misread);
+- **fault or intended design** -- the project's RECORDED DECISIONS (closed tickets and the rules they fixed). A model's
+  opinion follows the prompt's wording either way (measured twice). This is where memory knowledge is indispensable.
+
+**Implement and verify.** The single-ticket rung exists: **T6-T, the ticket ladder** (`scripts/ladder_case.py`: the code
+before a past commit, its message as the ticket, its tests as the judge; withheld-test variants where the loop writes
+its own). Bands 1-3 measured (`ladder-rows`, 6 classes, fulfilled 2 of 3 twice; `ladder-grind` best 48/51; band 4 never
+cut; the whole tree, 586 files, never attempted). New beyond it: a FORWARD ticket (an open one, cut from HEAD, judged by
+its DoD and tests the loop writes, the existing suite green), a CHAIN (each ticket on the loop's own previous result),
+how different the rebuilt code is, and the loop choosing the order. The rebuild of past tickets is the baseline /
+control experiment, not the goal.
+
+**Record and coordinate.** The Observatory (`observatory/`, [[reference-observatory]]) already shows roadmap,
+tickets, live events, decisions and test reports, read-only. Missing: a **proposal registry** (drafts with evidence,
+beside the open tickets and the run; the user accepts, edits or drops) and the **ticket -> run link** (only ladder runs
+have it, via the commit title). The Observatory shows and records; it never decides and holds no planning engine.
+
+## Problem memory -- what carries across projects
+
+The unit of similarity is a **CASE: situation -> action -> result** (the user, 2026-11-17): a decision point where a
+response or verdict came back with a dilemma, what the loop did next, what followed. Measured over 597 archived runs:
+situations recur across projects and the action matters, but "what worked for this situation elsewhere" chose no
+better than one situation-blind rule -- **after a rejection or refusal, step back (move on, replan) instead of retrying
+the same files** (observational; a replay of frozen situations would prove it causal). Matching by signature text, by
+cause, by fix form, by combined lenses or by the model's reading of the reason all came out the same. Real dilemmas
+(requirements pulling apart) are too rare to count: they belong to diagnosis, and the transferable knowledge for them is
+memory knowledge -- "this was the framework, not the work; a closed ticket fixed it; a recurrence is a regression".
+
+**Rules for any knowledge the loop imports** (unchanged): it arrives as measurements with provenance, never as fact
+([[project-ticket-premises-expire]]); read-only and advisory under T2-ER (`@HistoryRead`); a ticket id reaches a prompt
+only if the prompt defines it ([[feedback-no-internal-ids-in-model-facing-text]]); no target names in framework
+strings; imported knowledge is judged for applicability before it binds (T2-FN was a brought project's history doing
+harm).
 
 ## What already exists (do not rebuild)
 
-- **T4-CT (closed 2026-09-30, `df903902`): problem memory across runs of the SAME TASK.** `core/stuck/StuckPriors`,
-  `graph/stuck/Neo4jStuckPriors`: each stuck-ledger entry that ENDED, RECURRED or stayed UNANSWERED is a
-  `stuck_outcome` action keyed by the SHA-256 of the seed; a later run asks first the question that ended the
-  signature before. Measured: 3 of 3 pairs shorter grind, failed builds 13/13/9 -> 4/3/5, all six GOAL_FULFILLED.
-  Limits stated there: one toy case, one signature, n = 3. **It keeps which question ended a signature, never the
-  answer.**
-- **The stuck layer (T4-DY, T4-DZ, T4-EU):** sources BUILD, PROTECTED_WRITE, CLOSURE_REFUSAL, FLAT_ROOT, EXHAUSTION,
-  TEST_FAILURES, VETO, BOOT; authorities structure -> observation (`TerminalAgent`, read-only copy, allow-listed
-  commands) -> model last; `EvidenceReader` / `LogInvestigator` for closure refusals; the diagnosis request and the
-  pause. See [[project-t4dy-meta-layer-design-note]].
-- **Records to learn from:** stuck ledgers in 63 of 70 project folders (sightings on 2026-11-16: BUILD 18,
-  TEST_FAILURES 18, CLOSURE_REFUSAL 17, FLAT_ROOT 11, VETO 8, BOOT 1, PROTECTED_WRITE 1), 176 behaviour logs under
-  `data/*/logs`, 599 archived runs under `~/.autobuilder/run-archive`, 651 rows in `scripts/run_outcomes.json`, the
-  graph with every lineage since 2026-09-24 attributed.
-- **Self-application precedents:** structdiff and `core.lifecycle`, two modules of Autobuilder extracted and adopted
-  as targets (T4-CQ, [[project-project-portability-vision]]); a foreign tree as a first-class project (T4-EK).
-- **The outer loop's own record:** `.claude-memory/roadmap.md` (each ticket: Observed, cause, fix, the commit, the
-  DoD and how it was verified), the feedback and project notes, git history. 643 commits named for a ticket, **534 of
-  them carry tests**.
+- **T4-CT:** problem memory across runs of the SAME task (`StuckPriors`, keyed by the seed's SHA-256): the question that
+  ended a signature is asked first next time. Kept as it is (a shape key was measured and not worth it).
+- **The stuck layer** (T4-DY, T4-DZ, T4-EU): sources, authorities structure -> observation -> model last,
+  `EvidenceReader` / `LogInvestigator`, the diagnosis request and the pause ([[project-t4dy-meta-layer-design-note]]).
+- **The ladder** (T6-T) and its toy cases; **the run archive** (599 runs, behaviour logs, main logs with every model
+  response, ledgers, final trees); `meta/run-end-report.json` per run.
+- **The outer loop's record:** `roadmap.md` (Observed, cause, fix, DoD and how it was verified per ticket), git history
+  (643 ticket commits, 534 with tests).
 
-## Direction 1 -- "have I met this problem before, here or in another project?"
+## Guardrails
 
-**The gap.** T4-CT matches a signature by its exact text within one task. Signatures are written in the project's own
-words -- *"the build fails: TestRunGate.java: local variables referenced from a lambda expression must be final"*,
-*"the same tests keep failing: PantryLabelTest.labelOf..."* -- so nothing matches across projects, though the
-underlying problem (a captured variable that is reassigned; a check that misreads a test it was shown) recurs on any
-target.
-
-**Similarity in levels, cheapest authority first** ([[project-invented-facts-have-authorities]]):
-- **L0 -- the same signature, same task.** T4-CT, built.
-- **L1 -- the same SHAPE, any project.** The signature with the project's identifiers taken out structurally: the
-  compiler's message template, the gate and its ground of refusal, the veto's heuristic and its kind, the test
-  failure's assertion kind. No model. Most BUILD, VETO, FLAT_ROOT and CLOSURE_REFUSAL signatures already have a
-  stable template under their names.
-- **L2 -- the same CAUSE, worded differently.** Needs a reading: a model proposes "this is the same as that", and only
-  evidence confirms it (the same question ended both; the same kind of change ended both). Last, and only if L1
-  leaves a measured gap.
-
-**The unit of similarity is a CASE: situation -> action -> result (the user, 2026-11-17; supersedes the
-signature-as-unit framing above).** A situation is a decision point in a run where a response or verdict came back
-with a dilemma (an evaluator rejection with its reason, a closure refusal, requirements pulling apart, an answer
-contradicting the files); the action is what the loop did next; the result is what followed (merged, the same
-dilemma again, another problem, solved within N cycles). The loop meeting a situation asks: in similar cases in other
-runs and projects, which action led to a good result? Value exists only if situations recur, actions in them lead to
-different results, and the action that worked carries across projects. The lenses below describe a situation; the
-measurements of 2026-11-17 on the ticket tested the stuck ledger's ENDINGS, not this.
-
-**Lenses for "is this a similar problem?" (2026-11-17, after the user called measurement (a) "a very flat
-evaluation": (a) compared only the signature's template).** Each lens is its own measurement on the T4-EZ ticket,
-rule first. Lenses 1 and 2 are measured (ticket, 2026-11-17); 3-6 are not started.
-- **Lens 1 -- cause, from the entry's own answers.** The ledger's answers already say what the failure WAS: a member
-  invented on the project's own type or on a library type, a type that exists nowhere, a type in another package, a
-  name that resolves to a JDK class or to several declarations, a constructor shape not offered, a broken file
-  structure, a duplicate, a type mismatch; for a failing test, whether the code returned nothing, an extra element, a
-  wrong value, a wrong interaction or an exception. Structural, no model (`scripts/t4ez_cause_fix.py`).
-- **Lens 2 -- fix form, the change that ended it.** The run's log holds every response in full; the write applied in
-  the ending cycle, reduced to its kind: the missing name declared, the reference replaced, an import changed, the
-  file rewritten whole; for tests and refusals, whether the test, the code or the build configuration changed (the
-  last says whether the CHECK or the WORK was wrong -- T4-EU's kinds). Two problems are alike when the same kind of
-  change ended both. Finer forms (what replaced the reference: a member the answer listed? a local copy before a
-  lambda?) are the next step if the coarse forms are too blunt.
-- **Lens 3 -- the run's course.** Problems visible only over several cycles: two refusals trading places (gradient's
-  menu pair), revert loops, the same file rewritten whole again and again, a rewind undoing a pause. From the
-  behaviour log's event sequence, any project; the outer loop catches these by hand today.
-- **Lens 4 -- context at onset.** What the loop was doing when the problem began: subgoal kind, a new file or an edit,
-  an adopted project or its own, the response format (whole file or hunks), the prompt's size. Similar context may
-  predict a problem before its signature appears.
-- **Lens 5 -- a model reading, confirmed by evidence (L2 above).** A model proposes "same cause as that"; it counts
-  only when lens 1 or 2 agrees.
-- **Lens 6 -- beyond the stuck ledger.** Problems that never reached it: evaluator rejection reasons, closure
-  refusals that did not grind, heuristic vetoes, and closed tickets' Observed / cause / fix (memory knowledge).
-
-**What can transfer across projects** -- never the answer (it names the other project's code), but:
-- (a) **which question / authority ended this shape** (T4-CT's prior, widened from task to shape);
-- (b) **the form of the change that ended it** -- the diff of the merge after which the signature stopped, reduced
-  to its shape ("a local copy of the variable before the lambda"; "an equality assertion beside the contains");
-  needs a link from an ENDED ledger entry to that merge, which the graph has and the ledger does not keep;
-- (c) **"this was the framework, not the work"** -- the shape matches a defect fixed in Autobuilder itself (a
-  closed ticket), so a recurrence means a regression, not a hard task. This is where memory knowledge comes in.
-
-**Run knowledge and memory knowledge, combined (the user's decision).**
-- *Run knowledge:* ledger outcomes, the merges that ended signatures, rejection reasons, terminals -- written by the
-  loop, structured, every project. It answers (a) and (b).
-- *Memory knowledge:* the closed tickets' Observed / cause / fix and the lessons -- written by the outer loop, prose,
-  framework-level. It answers (c), and it is the only place where "this kind of problem was the CHECK's fault, not the
-  work's" (T4-EU kind (b)) is recorded at all.
-- **How they meet:** the shape (L1) is the join key -- a ticket's Observed quotes the signature that led to it (T1-GM
-  quotes the refusal text; T2-FN the criteria), so a closed ticket can be indexed by the shapes it quotes.
-- **Rules that hold for both** (from existing decisions): arrives as measurements with provenance, never as fact
-  (T4-CT's constraint; [[project-ticket-premises-expire]]: a ticket's claim is DATED); read-only and ADVISORY under
-  T2-ER (`@HistoryRead`); a ticket id reaches a prompt only if the prompt defines it
-  ([[feedback-no-internal-ids-in-model-facing-text]]); no target names in framework strings
-  ([[feedback-no-target-domain-in-framework-strings]]); imported knowledge is judged for applicability before it
-  binds -- T2-FN was exactly a brought project's history doing harm.
-
-**First step -- measure, offline, rule fixed before counting** ([[feedback-measure-before-widening-a-working-rule]]):
-normalise every recorded signature to its L1 shape (63 ledgers + the `stuck_outcome` actions), then count
-(i) shapes seen in >= 2 projects, (ii) of those, how often the same question ended them in each project,
-(iii) how many shapes match a signature quoted in a closed ticket. **Decision rule (relative to the one baseline that
-already paid off, [[feedback-relative-thresholds]]):** T4-CT acted on a within-task recurrence of 10 of 19
-signatures. If cross-project recurrence of shapes with a consistent ending is of the same order, widen T4-CT's key
-from task to shape (a small change: the port stays, the key changes). If it is far smaller, the cross-project value
-is in (c), the framework-level match, and direction 1 folds into direction 2. Either outcome is recorded.
-
-## Direction 2 -- a run that ends in a draft diagnosis
-
-**The gap.** The outer loop's analysis is repetitive and has a recipe ([[feedback-run-analysis-log-order]],
-[[feedback-escalate-unrecoverable-stagnation]], [[project-invented-facts-have-authorities]]): read the behaviour log,
-find where it ground, find the claim nobody checked and its cheap authority, see whether a closed ticket already
-covers it, classify (work wrong / check wrong / requirement unmeetable / cause outside -- T4-EU's four kinds), tier by
-mechanism ([[feedback-ticket-tiering]]), write Observed + cause + proposed fix + DoD. The loop has most of the
-pieces (stuck ledger, authorities, `LogInvestigator`, the narrator, T4-EU's evidence read) and none of them produce
-that artifact. T4-EU already says its contradiction record "would have been a ticket written by the run".
-
-**The artifact:** `meta/diagnosis.md` (or a graph record with a rendered view) at the end of a run and at every
-diagnosis request: each grind episode with its signature, the evidence lines read, the kind, the similar past
-problems from direction 1 with their provenance (run or ticket), and a draft ticket in the roadmap's form. The
-operator reads it instead of the log; we write the ticket from it or say why it is wrong.
-
-**The instrument -- our own history is the yardstick.** Tickets filed from a field run whose logs are still on disk
-(T1-GM on `pantry-rev3`, T1-GP / T1-GQ on `gradient`, T2-FN on the gradient trio, T4-EU on `pantry-rev3`, more in the
-roadmap) are held-out cases: the draft is generated from the archived run as it stood when we read it, then compared
-with the ticket's Observed and cause. Score fixed before the first replay: same episode found; same evidence named;
-same kind; same component; a closed ticket correctly named when one applies. The ratio of drafts that match our
-diagnosis is the measure of how much of the outer loop has moved inward -- it can be reported per build, like the
-suite count.
-
-**First step:** list the tickets of the last two months that name their field run, check which runs' logs and trees
-are still on disk, and fix the scoring sheet. Offline.
-
-## Direction 3 -- building itself, measured before it is trusted
-
-**Correction 2026-11-17: the single-ticket rung of this direction EXISTS -- T6-T, the ticket ladder (closed;
-`scripts/ladder_case.py`, ten of the archive's targets).** Bands 1-3 measured (band 3 `ladder-rows` fulfilled 2 of 3,
-twice; `ladder-grind` 47-48/51, never fulfilled; band 4 never cut; withheld-test variants exist). What is new here is
-only: a CHAIN of tickets on the loop's own previous result, how different the rebuilt code is, and the loop choosing
-the order. The text below predates this correction.
-
-**The material is already there: 534 ticket commits with tests.** For each, the commit before the fix is the starting
-state, the ticket's body AS IT STOOD IN THAT PARENT COMMIT (`git show <parent>:.claude-memory/roadmap.md` -- so
-nothing written after the fix leaks in) is the input, and the tests the commit added are the judge, together with the
-suite of the parent (nothing that passed may fail). The judge lives outside the copy, as the north-star note
-requires: the copy never sees the tests that grade it, and nothing in it can change them.
-
-**Ladder, smallest first:**
-- **Rung 1 -- a ticket inside an extractable module** (structdiff-sized: the module as a project, the ticket as the
-  seed). The loop already completed such projects (T4-CQ). Measures: does the loop make the commit's tests pass
-  without breaking the module's suite.
-- **Rung 2 -- a small ticket in the whole tree** (586 files, 106k lines): the test gate cannot run 4,679 tests per
-  cycle; it needs the affected tests (by package or by the classes the change touches). This is where the local
-  model's limits ([[project-local-first-constraint]]) will show -- measured, not assumed.
-- **Rung 3 -- the loop's own draft ticket from direction 2 as the input**, built on a copy, judged by tests WE write
-  before the run. That is the outer loop closed: run -> diagnosis -> fix on a copy -> independent check -> the user
-  decides whether it lands.
-
-**Guardrails (from [[project-introspection-as-north-star]]):** the framework that runs and the referee are never the
-copy; a self-edit lands only through the user (as every port does now, [[feedback-operator-reviews-ports]]); the
-measure is not one the copy can change (reward-hacking the base case); the base case is the suite green.
-
-**First step:** a corpus script: per ticket commit, the parent, the ticket body at the parent, the tests added, the
-size of the change, the modules touched; then pick five rung-1 candidates and run ONE as a pilot with the judge fixed
-before the run.
-
-## Order proposed
-
-1. Direction 1's measurement and direction 3's corpus -- both offline, no runs, no model; they decide how large the
-   rest is.
-2. Direction 2's scoring sheet and a first replay of the diagnosis on 3-5 held-out runs.
-3. Direction 3's rung-1 pilot (one ticket, one run).
-Then tickets for what the measurements support. T4-EU's next slice already lies on direction 2 and could move up;
-the rest of the queue keeps its order ([[feedback-roadmap-is-the-queue]]: these become tickets only after the user's
-review of this note).
+The framework that runs and the referee are never the copy; the measure is not one the copy can change; the base case
+is the suite green. A change to Autobuilder itself lands only through the user ([[feedback-operator-reviews-ports]]) --
+a STARTING rule, to widen step by step with demonstrated competence, not the end state.
 
 ## Open questions for the user
 
-- **Memory knowledge, which parts and how read.** Only closed tickets (Observed / cause / fix), or the feedback lessons
-  too? Read from the checkout at run start as a snapshot (`.claude-memory` changes under branch operations), and is a
-  product reading the outer loop's notes compatible with [[feedback-process-apart-from-product]] -- or should the
-  closed tickets be exported into a product-side record the loop owns?
-- **Where the draft diagnosis appears:** a file in `meta/`, a view on the home screen, the narrator's text, all three?
-- **Direction 3's first target:** a module extracted like structdiff (cheaper, proven), or the whole tree from the start
-  with an affected-tests gate (closer to the goal, more unknowns)?
-- **Tier.** Direction 1's widening is T4 (capability); direction 2's artifact T4; direction 3's corpus and replay T6
-  (harness). Or one umbrella ticket per direction with slices, the way T4-EC was cut?
+- **Memory knowledge, how read:** the checker needs the closed tickets and their decisions. Read from the checkout as a
+  snapshot, or exported into a product-side record the loop owns ([[feedback-process-apart-from-product]])? Which
+  parts beyond closed tickets (the feedback lessons)?
+- **Where drafts appear:** the proposed answer is the Observatory's proposal registry; a file in `meta/` beneath it.
+- **The first forward ticket:** module-sized (proposed) before the whole tree.
 
 ## Related
 
-[[project-introspection-as-north-star]] (the destination), [[project-living-project-vision]] (projects take inputs;
-an imported project's history is knowledge -- and, T2-FN, can be harm), [[project-cross-run-knowledge-base]] (graph
-reconciliation of different runs; T6-G found same-seed lineages share little CODE -- problems are a different axis,
-which is why direction 1 measures first), [[project-t4dy-meta-layer-design-note]], [[project-wave2-structure]].
+[[project-introspection-as-north-star]] (the destination), [[project-living-project-vision]], [[project-cross-run-knowledge-base]],
+[[project-t4dy-meta-layer-design-note]], [[project-pattern-recognition-design-note]] (a pattern is worth recognizing
+only if it predicts something), [[project-t4ez-measurements]] (the record), [[reference-observatory]].
