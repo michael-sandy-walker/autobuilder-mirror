@@ -68,6 +68,7 @@ False completions and diagnosis lenses:
 Operations:
 - `project_run_lifecycle_runbook.md`: start/stop/monitor runs, watcher traps, `early_stop.sh`, `bundle.py`, versioned toy cases; another agent may run in parallel. (reviewed 2026-11-08)
 - `project_log_and_backup_conventions.md` (+ superseded `project_tests_rotate_live_logs.md`): current run = unsuffixed `logs/behaviour.ndjson`, concatenated pretty JSON; tests use a scratch `FILE_BASE_PATH`. (reviewed 2026-09-08)
+- `reference_observatory.md`: `observatory/` submodule = local read-only dashboard (roadmap, tickets, git, test reports, live events), port 8090. (reviewed 2026-11-17)
 ## Feedback
 How to work:
 - `feedback_run_without_asking.md`: run mvn/build/test with dangerouslyDisableSandbox; never prompt. (reviewed 2026-07-09)
