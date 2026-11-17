@@ -37,6 +37,8 @@ CASES = {
     # the first full ticket cycle's run (stuck-alternation, 2026-11-17 21:23); scored against Claude's diagnosis,
     # written before any draft (drafts/F1/reference-claude-diagnosis.md)
     "F1": {"dir": "data/stuck-alternation", "behaviour": "logs/behaviour.ndjson", "roadmap_at": "5ec46957", "refs": {}},
+    # the second run (build with T1-GS, 2026-11-17 22:50); F1's files were moved to ~/.autobuilder/field-forward2/prev
+    "F2": {"dir": "data/stuck-alternation", "behaviour": "logs/behaviour.ndjson", "roadmap_at": "6debd647", "refs": {}},
 }
 
 
@@ -320,6 +322,7 @@ READ_SOURCES = {
     "C1": {"dir": "data/pantry-rev5", "behaviour": "logs/behaviour.ndjson", "main": "logs/autobuilder.log"},
     "C2": {"archive": "2026-10-06_15-15-22"},
     "F1": {"dir": "data/stuck-alternation", "behaviour": "logs/behaviour.ndjson", "main": "logs/autobuilder.log"},
+    "F2": {"dir": "data/stuck-alternation", "behaviour": "logs/behaviour.ndjson", "main": "logs/autobuilder.log"},
 }
 MAIN_TS = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)")
 
