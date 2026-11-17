@@ -78,6 +78,31 @@ target.
   evidence confirms it (the same question ended both; the same kind of change ended both). Last, and only if L1
   leaves a measured gap.
 
+**Lenses for "is this a similar problem?" (2026-11-17, after the user called measurement (a) "a very flat
+evaluation": (a) compared only the signature's template).** Each lens is its own measurement on the T4-EZ ticket,
+rule first. Lenses 1 and 2 are measured (ticket, 2026-11-17); 3-6 are not started.
+- **Lens 1 -- cause, from the entry's own answers.** The ledger's answers already say what the failure WAS: a member
+  invented on the project's own type or on a library type, a type that exists nowhere, a type in another package, a
+  name that resolves to a JDK class or to several declarations, a constructor shape not offered, a broken file
+  structure, a duplicate, a type mismatch; for a failing test, whether the code returned nothing, an extra element, a
+  wrong value, a wrong interaction or an exception. Structural, no model (`scripts/t4ez_cause_fix.py`).
+- **Lens 2 -- fix form, the change that ended it.** The run's log holds every response in full; the write applied in
+  the ending cycle, reduced to its kind: the missing name declared, the reference replaced, an import changed, the
+  file rewritten whole; for tests and refusals, whether the test, the code or the build configuration changed (the
+  last says whether the CHECK or the WORK was wrong -- T4-EU's kinds). Two problems are alike when the same kind of
+  change ended both. Finer forms (what replaced the reference: a member the answer listed? a local copy before a
+  lambda?) are the next step if the coarse forms are too blunt.
+- **Lens 3 -- the run's course.** Problems visible only over several cycles: two refusals trading places (gradient's
+  menu pair), revert loops, the same file rewritten whole again and again, a rewind undoing a pause. From the
+  behaviour log's event sequence, any project; the outer loop catches these by hand today.
+- **Lens 4 -- context at onset.** What the loop was doing when the problem began: subgoal kind, a new file or an edit,
+  an adopted project or its own, the response format (whole file or hunks), the prompt's size. Similar context may
+  predict a problem before its signature appears.
+- **Lens 5 -- a model reading, confirmed by evidence (L2 above).** A model proposes "same cause as that"; it counts
+  only when lens 1 or 2 agrees.
+- **Lens 6 -- beyond the stuck ledger.** Problems that never reached it: evaluator rejection reasons, closure
+  refusals that did not grind, heuristic vetoes, and closed tickets' Observed / cause / fix (memory knowledge).
+
 **What can transfer across projects** -- never the answer (it names the other project's code), but:
 - (a) **which question / authority ended this shape** (T4-CT's prior, widened from task to shape);
 - (b) **the form of the change that ended it** -- the diff of the merge after which the signature stopped, reduced
