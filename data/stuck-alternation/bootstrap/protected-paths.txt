@@ -1,0 +1,13 @@
+# T4-CQ: paths under output/ the loop may not write, one glob per line.
+# The existing tests are the operator's; the loop may ADD tests (the withheld rung).
+src/test/java/com/walpro/autobuilder/core/build/DeclaredMembersTest.java
+src/test/java/com/walpro/autobuilder/core/build/JdkPlatformTypeIndexTest.java
+src/test/java/com/walpro/autobuilder/core/build/ReceiverQuestionsSpecTest.java
+src/test/java/com/walpro/autobuilder/core/build/StuckQuestionsPortReviewTest.java
+src/test/java/com/walpro/autobuilder/core/build/StuckQuestionsShapesTest.java
+src/test/java/com/walpro/autobuilder/core/build/StuckQuestionsSpecTest.java
+src/test/java/com/walpro/autobuilder/core/build/StuckQuestionsSymbolTest.java
+src/test/java/com/walpro/autobuilder/core/stuck/StuckDiagnosisTest.java
+src/test/resources/stuck/signatures.tsv
+src/test/resources/stuck/trees.zip
+src/test/java/com/walpro/autobuilder/core/stuck/StuckLedgerTest.java

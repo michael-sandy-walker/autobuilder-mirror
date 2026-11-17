@@ -1,0 +1,22 @@
+  An existing project, adopted, and now asked to change. It was written by someone else and it already
+  builds; its existing behaviour is characterised by the tests in src/test/java.
+  The change wanted is written in the ticket that asked for it. In the ticket's own words:
+
+    T4-EU (slice): the stuck ledger names closure refusals that trade places.
+
+    The stuck ledger keeps the cycle of every counted sighting of a signature, in order (Entry.cycles(): the cycle
+    id of each sighting the ledger counted, oldest first), not only the first and the last. It names alternating
+    pairs: StuckLedger.alternatingPairs() returns List<StuckLedger.AlternatingPair>, with record
+    AlternatingPair(String first, String second, List<String> firstCycles, List<String> secondCycles). Two
+    CLOSURE_REFUSAL signatures form a pair when their counted sightings, merged in the order the ledger counted
+    them, form at least four runs (A, B, A, B ...): each came back after the other at least once more. first is
+    the signature counted first; each pair is named once; pairs are ordered by the first sighting of first, then
+    of second. A signature that repeats alone, two that overlap only once (A A B B, or A B A), and any pair
+    involving another source are not pairs. The existing ledger behaviour and its tests stay as they are.
+
+  The one class to change is StuckLedger.
+  Write the tests the change needs yourself, beside the existing ones; the operator will check the
+  change with tests of their own.
+
+  DO NOT modify the existing tests under src/test: they are the operator's, and if one of them fails, the
+  code is what is wrong. Keep the project's packages, classes and naming.
