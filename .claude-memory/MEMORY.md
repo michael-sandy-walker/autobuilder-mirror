@@ -13,15 +13,15 @@ Restamp a line the day you re-check it against its file.
 - Build `mvn clean install`, test `mvn test -Dtest=C#m`; targets `data/<name>/`, runs pick by `PREFLIGHT_TARGET=x`; goal stack `meta/GoalStack.json`; profiles `test`, `dev-local`, `dev-auto`, `fast`
 - **`.claude-memory/` IS the loading memory** — checkout/branch/cherry-pick touching it mutates live memory; commit first. Tiers T1 correctness .. T6 harness
 ## Roadmap
-- `roadmap-overview.md` — thin per-ticket index by tier. (reviewed 2026-11-16)
-- `roadmap.md` — backlog and ticket bodies (source of truth). (reviewed 2026-11-16)
+- `roadmap-overview.md` — thin per-ticket index by tier. (reviewed 2026-11-18)
+- `roadmap.md` — backlog and ticket bodies (source of truth). (reviewed 2026-11-18)
 - `tier_definitions.md` — tier meanings. (reviewed 2026-09-08)
 ## Meta / Process (YOU+ME work, not the product)
 - `meta_process.md` — how YOU+ME divide/sequence/staff work; "Model" = which Claude runs a session. (reviewed 2026-10-20)
 ## Project insights
 Direction and orientation:
 - `project_session_agenda.md`: 2026-08-23 REORDER section is live; S1-S6 reasoning only; never a queue. (reviewed 2026-09-08)
-- `project_resume_state.md`: latest session/run state; only the NEWEST block has the entry marker. Read before quoting run numbers. (reviewed 2026-11-16)
+- `project_resume_state.md`: latest session/run state; only the NEWEST block has the entry marker. Read before quoting run numbers. (reviewed 2026-11-18)
 - `project_wave2_structure.md`: wave 2 layers; widen what the loop SEES only after scoping what it CONSULTS. (reviewed 2026-07-26)
 - `project_introspection_as_north_star.md`: goal = a loop with a self-model it consults before acting; "substrate or patch?". (reviewed 2026-09-08)
 - `project_living_project_vision.md`: a project keeps taking inputs (seed = first); OFFSPRING code+graph become knowledge. Before input/merge/import work. (reviewed 2026-10-30)
@@ -30,7 +30,7 @@ Design notes, read before touching their area:
 - `project_t4j_design_note.md`: T4-J signal audit (decay, obsolete vs missing; calibration LAST). Before signal tuning/deletion. (reviewed 2026-07-09)
 - `project_signal_consumer_map.md`, `project_signal_dispositions.md`, `project_t4j_perturbation_lab.md`: signal emitter/reader map, decided disposition per signal, frozen-state lab (ROLE-identity decay constants matter). Before signal work. (reviewed 2026-09-24)
 - `project_outer_loop_inward_design_note.md`: T4-EZ design: Autobuilder runs its own ticket cycle; a similar problem is a CASE; finding / facts (reading) / fault-or-design (recorded decisions) are three authorities; the ladder is the implementation rung; Observatory lacks a proposal registry and ticket -> run link. Condensed 2026-11-17 (first version: git `c9b44af8`). (reviewed 2026-11-17)
-- `project_t4ez_measurements.md`: T4-EZ measurement record (rules, counts, faults, scores, the user's words) moved out of the ticket 2026-11-17; the ticket keeps conclusions and state. (reviewed 2026-11-17)
+- `project_t4ez_measurements.md`: T4-EZ measurement record (rules, counts, faults, scores, the user's words) moved out of the ticket 2026-11-17; the ticket keeps conclusions and state. (reviewed 2026-11-18)
 - `project_t4dy_meta_layer_design_note.md`: T4-DY diagnostic layer: stuck signature -> question -> authority (structure, observation, model last) -> fact + ledger; closed; T4-EU added the evidence read and the pause for closure refusals. (reviewed 2026-11-12)
 - `project_t4bz_design_note.md`, `project_t4bo_design_note.md`: signal re-architecture (invariants I1-I12) and decay observability. Before signal plumbing. (reviewed 2026-09-08)
 - `project_t4ai_design_note.md`: meta lane was decorative; deleted. Before touching AdaptiveExecutionEngine/DeliberationService. (reviewed 2026-07-09)
@@ -58,7 +58,7 @@ False completions and diagnosis lenses:
 - `project_false_completion_unmasked.md`, `_2`, `_3`, `_4`: the four false completions -- stub-blind verifier, unbootable jar (abstain is not pass), DI defect averaged away, bookkeeping ledger never reading the seed. (reviewed 2026-09-28)
 - `project_invented_facts_have_authorities.md`: defects are INVENTED FACTS whose cheap authority went unconsulted; structure before model. Also: group by the RECORD, leave the model the word (T4-EQ). (reviewed 2026-11-12)
 - `project_capability_outruns_routing.md`: a missing behaviour is UNREACHED, not unbuilt; find the link that does not fire. (reviewed 2026-09-21)
-- `project_ticket_premises_expire.md`: a ticket's BLOCKER is a dated claim; grep both ways first. (reviewed 2026-09-21)
+- `project_ticket_premises_expire.md`: a ticket's BLOCKER is a dated claim; grep both ways first. (reviewed 2026-11-18)
 - `project_detector_went_silent_as_the_fault_spread.md`: ask any majority rule what it does when the anomaly is the majority. (reviewed 2026-09-03)
 - `project_completion_edge_gates.md`: coverage, package, test; every diagnosis needs an actuator. (reviewed 2026-07-09)
 - `project_grounding_night_insight.md`: prefer belief-to-verification moves. (reviewed 2026-07-09)
@@ -67,7 +67,7 @@ False completions and diagnosis lenses:
 - `project_local_first_constraint.md`: local execution is HARD; no hosted-model upgrade. (reviewed 2026-07-09)
 - `project_meta_concrete_target_hint_idea.md`: historical; only if reviving a non-LLM concrete-target hint. (reviewed 2026-07-09)
 Operations:
-- `project_run_lifecycle_runbook.md`: start/stop/monitor runs, watcher traps, `early_stop.sh`, `bundle.py`, versioned toy cases; another agent may run in parallel. (reviewed 2026-11-08)
+- `project_run_lifecycle_runbook.md`: start/stop/monitor runs, watcher traps, `early_stop.sh`, `bundle.py`, versioned toy cases; another agent may run in parallel. (reviewed 2026-11-18)
 - `project_log_and_backup_conventions.md` (+ superseded `project_tests_rotate_live_logs.md`): current run = unsuffixed `logs/behaviour.ndjson`, concatenated pretty JSON; tests use a scratch `FILE_BASE_PATH`. (reviewed 2026-09-08)
 - `reference_observatory.md`: `observatory/` submodule = local read-only dashboard (roadmap, tickets, git, test reports, live events), port 8090. (reviewed 2026-11-17)
 ## Feedback
@@ -94,7 +94,7 @@ How to work:
 - `feedback_flag_ceremony_cost_early.md`: say so BEFORE process costs more than the task. (reviewed 2026-09-08)
 - `feedback_sonnet_for_batch_tickets.md`: mechanical tickets to a Sonnet subagent; design/validation stay here. (reviewed 2026-07-14)
 - `feedback_roadmap_is_the_queue.md`: work comes from the roadmap ONLY. (reviewed 2026-09-10)
-- `feedback_no_per_run_memory_files.md`: fold runs into `project_resume_state.md`. (reviewed 2026-09-25)
+- `feedback_no_per_run_memory_files.md`: fold runs into `project_resume_state.md`. (reviewed 2026-11-18)
 Evidence discipline:
 - `feedback_baseline_before_accuracy.md`: four ways a predictor-hunt lies. (reviewed 2026-09-10)
 - `feedback_verify_population_before_claim.md`: scan the full corpus before all/most/never. (reviewed 2026-07-09)
