@@ -181,6 +181,11 @@ public record CycleContextData(
         // Rendered as a --- ACCEPTANCE CRITERIA --- block in the evaluation prompt.
         List<String> currentSubGoalCriteria,
 
+        // T1-GS: the 1-based indices of currentSubGoalCriteria stamped AUTHORED (CriteriaBinding) -- added by the loop
+        // beyond the specification. Shown to the evaluator as advisory; never counted as unmet by the fulfilment check.
+        // Null or empty when there is no stamp (every criterion binding, as before).
+        java.util.Set<Integer> currentSubGoalAuthoredCriteria,
+
         // T3-AZ: per-criterion pass/fail lines parsed from the CriteriaCheck: block in the evaluator response.
         // Each entry is "[N] ✓ <criterion>" or "[N] ✗ <criterion> — <reason>".
         // Set by EvaluationAgent after LLM response is parsed; used by SubGoalFulfillmentHeuristic (T3-BA)

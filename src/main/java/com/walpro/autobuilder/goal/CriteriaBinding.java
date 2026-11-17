@@ -1,6 +1,8 @@
 package com.walpro.autobuilder.goal;
 
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * The one reader of a goal's per-criterion binding stamp.
@@ -37,5 +39,15 @@ public final class CriteriaBinding {
         Object raw = goal.getMetadata().get(METADATA_KEY);
         if (!(raw instanceof Map<?, ?> m)) return false;
         return AUTHORED.equals(m.get(String.valueOf(oneBasedIndex)));
+    }
+
+    /**
+     * T1-GS: the 1-based indices of the goal's first {@code count} criteria that are AUTHORED -- what the cycle
+     * carries so the evaluator and the fulfilment check can tell guidance from requirement. Empty without a stamp.
+     */
+    public static Set<Integer> authoredIndices(GoalEntity goal, int count) {
+        Set<Integer> out = new TreeSet<>();
+        for (int i = 1; i <= count; i++) if (isAuthored(goal, i)) out.add(i);
+        return out;
     }
 }

@@ -69,7 +69,8 @@ public class SubGoalFulfillmentHeuristic {
 
         // If interpreter says fulfilled, close immediately — unless a criterion is explicitly unmet or omitted (T3-BA/T3-BC).
         if (gp == GoalProgressState.FULFILLED) {
-            if (hasUnmetCriterion(ctx.criteriaAssessments(), ctx.currentSubGoalCriteria(), ctx.cumulativeCriteriaStatus())) {
+            if (hasUnmetCriterion(ctx.criteriaAssessments(), ctx.currentSubGoalCriteria(), ctx.cumulativeCriteriaStatus(),
+                    advisory(ctx))) {
                 return FulfillmentDecision.no("interpreter=FULFILLED suppressed: unmet acceptance criterion");
             }
             return FulfillmentDecision.yes(1.0, "interpreter=FULFILLED");
@@ -96,7 +97,8 @@ public class SubGoalFulfillmentHeuristic {
         }
 
         // T3-BA/T3-BC: veto score-based closure when any criterion is explicitly unmet or was omitted by the LLM.
-        if (hasUnmetCriterion(ctx.criteriaAssessments(), ctx.currentSubGoalCriteria(), ctx.cumulativeCriteriaStatus())) {
+        if (hasUnmetCriterion(ctx.criteriaAssessments(), ctx.currentSubGoalCriteria(), ctx.cumulativeCriteriaStatus(),
+                    advisory(ctx))) {
             // T3-BK: graduation escape — bank progress if enough criteria passed and remaining are structurally stuck.
             FulfillmentDecision graduation = decideGraduation(score, ctx);
             if (graduation != null) return graduation;
@@ -115,11 +117,20 @@ public class SubGoalFulfillmentHeuristic {
      * When cumulativeCriteriaStatus is present, it is the authoritative source: a criterion that
      * passed in a prior cycle is considered satisfied even if this cycle's LLM omitted or failed it.
      */
-    private static boolean hasUnmetCriterion(List<String> assessments, List<String> definedCriteria,
-                                              java.util.Map<Integer, Boolean> cumulativeCriteriaStatus) {
+    /** T1-GS: the criteria the specification did not state; empty without a stamp (every criterion counts). */
+    static java.util.Set<Integer> advisory(CycleContextData ctx) {
+        return ctx.currentSubGoalAuthoredCriteria() == null ? java.util.Set.of() : ctx.currentSubGoalAuthoredCriteria();
+    }
+
+    private static final java.util.regex.Pattern ASSESSMENT_INDEX = java.util.regex.Pattern.compile("^\\s*\\[(\\d+)\\]");
+
+    static boolean hasUnmetCriterion(List<String> assessments, List<String> definedCriteria,
+                                     java.util.Map<Integer, Boolean> cumulativeCriteriaStatus,
+                                     java.util.Set<Integer> advisory) {
         // T1-BG: use cumulative map when available
         if (cumulativeCriteriaStatus != null && definedCriteria != null && !definedCriteria.isEmpty()) {
             for (int i = 1; i <= definedCriteria.size(); i++) {
+                if (advisory.contains(i)) continue;   // T1-GS: guidance, never a veto
                 Boolean passed = cumulativeCriteriaStatus.get(i);
                 if (passed == null || !passed) return true;
             }
@@ -127,13 +138,18 @@ public class SubGoalFulfillmentHeuristic {
         }
         // Fallback (no cumulative map yet): original T3-BA/T3-BC logic
         // T3-BA: explicit ✗ marker
-        if (assessments != null && assessments.stream().anyMatch(a -> a.contains("\u2717"))) return true;
+        if (assessments != null && assessments.stream().anyMatch(a -> a.contains("\u2717") && !advisoryLine(a, advisory))) return true;
         // T3-BC: LLM omitted lines — any defined criterion without a corresponding assessment line is an implicit fail
         if (definedCriteria != null && !definedCriteria.isEmpty()) {
             int assessed = assessments != null ? assessments.size() : 0;
             if (assessed < definedCriteria.size()) return true;
         }
         return false;
+    }
+
+    private static boolean advisoryLine(String assessment, java.util.Set<Integer> advisory) {
+        java.util.regex.Matcher m = ASSESSMENT_INDEX.matcher(assessment);
+        return m.find() && advisory.contains(Integer.parseInt(m.group(1)));
     }
 
     private static boolean hasMeaningfulChange(ProjectDiffResult diff) {
@@ -175,14 +191,18 @@ public class SubGoalFulfillmentHeuristic {
         if (cumulative == null || cumulative.isEmpty()) return null;
         if (failStreak == null || failStreak.isEmpty()) return null;
 
-        int totalCount = definedCriteria.size();
-        long passedCount = cumulative.values().stream().filter(Boolean::booleanValue).count();
+        java.util.Set<Integer> advisory = advisory(ctx);   // T1-GS: guidance is neither passed nor unmet here
+        int totalCount = definedCriteria.size() - (int) advisory.stream().filter(i -> i <= definedCriteria.size()).count();
+        if (totalCount <= 0) return null;
+        long passedCount = cumulative.entrySet().stream()
+                .filter(e -> !advisory.contains(e.getKey()) && Boolean.TRUE.equals(e.getValue())).count();
 
         if ((double) passedCount / totalCount < graduationRatio) return null;
 
         // Identify unmet criteria and verify each has been stuck long enough.
         List<Integer> unmetIndices = new ArrayList<>();
-        for (int i = 1; i <= totalCount; i++) {
+        for (int i = 1; i <= definedCriteria.size(); i++) {
+            if (advisory.contains(i)) continue;
             Boolean passed = cumulative.get(i);
             if (passed == null || !passed) {
                 int streak = failStreak.getOrDefault(i, 0);

@@ -176,6 +176,9 @@ public class CycleContextCoordinator {
                 .cumulativeStagnatingCycles(cumulativeStagnating)
                 .establishedBasePackage(detectedBasePackage)
                 .currentSubGoalCriteria(subgoalCriteria.isEmpty() ? null : subgoalCriteria)
+                // T1-GS: which of them the specification did not state -- guidance, not requirement
+                .currentSubGoalAuthoredCriteria(subgoal == null || subgoalCriteria.isEmpty() ? null
+                        : com.walpro.autobuilder.goal.CriteriaBinding.authoredIndices(subgoal, subgoalCriteria.size()))
                 // T1-BG/T3-BI: always sourced from the entity so subgoal switches and restarts are handled transparently
                 .cumulativeCriteriaStatus(criteriaPassStatus != null && !criteriaPassStatus.isEmpty() ? criteriaPassStatus : null)
                 // T2-BL: reset lastCriteriaPassCount when the active subgoal changes so the detector

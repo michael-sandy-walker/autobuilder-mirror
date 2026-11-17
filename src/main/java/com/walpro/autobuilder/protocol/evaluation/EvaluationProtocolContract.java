@@ -388,13 +388,11 @@ public class EvaluationProtocolContract {
                 context.currentSubGoalId()
         );
 
-        String criteriaBlock = context.currentSubGoalCriteria() == null || context.currentSubGoalCriteria().isEmpty()
-                ? "No acceptance criteria were defined for this subgoal. Evaluate against subgoal description only."
-                : context.currentSubGoalCriteria().stream()
-                        .map(c -> "* " + c)
-                        .collect(Collectors.joining("\n"));
+        java.util.Set<Integer> advisory = context.currentSubGoalAuthoredCriteria() == null
+                ? java.util.Set.of() : context.currentSubGoalAuthoredCriteria();
+        String criteriaBlock = criteriaBlock(context.currentSubGoalCriteria(), advisory);
 
-        String criteriaCheckFormat = buildCriteriaCheckFormat(context.currentSubGoalCriteria());
+        String criteriaCheckFormat = buildCriteriaCheckFormat(context.currentSubGoalCriteria(), advisory);
 
         String planContextBlock = planContextBlock(context);
 
@@ -487,7 +485,7 @@ public class EvaluationProtocolContract {
      * rather than generating the list from scratch (which causes LLM omission).
      * When no criteria are defined, instructs the model to omit the block entirely.
      */
-    private static String buildCriteriaCheckFormat(List<String> criteria) {
+    static String buildCriteriaCheckFormat(List<String> criteria, java.util.Set<Integer> advisory) {
         if (criteria == null || criteria.isEmpty()) {
             return "(Omit CriteriaCheck: entirely — no acceptance criteria are defined.)";
         }
@@ -495,7 +493,32 @@ public class EvaluationProtocolContract {
         sb.append("CriteriaCheck: (").append(criteria.size())
           .append(" criteria — emit exactly one line per criterion; omitting any line treats it as unmet)\n");
         for (int i = 0; i < criteria.size(); i++) {
-            sb.append("[").append(i + 1).append("] \u2713 or \u2717 ").append(criteria.get(i)).append("\n");
+            sb.append("[").append(i + 1).append("] \u2713 or \u2717 ")
+              .append(advisory.contains(i + 1) ? ADVISORY_MARK : "").append(criteria.get(i)).append("\n");
+        }
+        return sb.toString().stripTrailing();
+    }
+
+    /**
+     * T1-GS: a criterion the specification did not state (stamped AUTHORED) is shown as ADVISORY. Same count and
+     * order as before, so the CriteriaCheck parse is unchanged; the evaluator still reports it, but it is never a
+     * reason to reject. On 2026-11-17 an unmarked "Create AlternatingPair.java" -- grounded as not stated -- made
+     * the evaluator reject a correct nested record and the loop move it out of the class the ticket named.
+     */
+    static final String ADVISORY_MARK = "(advisory) ";
+
+    static String criteriaBlock(List<String> criteria, java.util.Set<Integer> advisory) {
+        if (criteria == null || criteria.isEmpty()) {
+            return "No acceptance criteria were defined for this subgoal. Evaluate against subgoal description only.";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < criteria.size(); i++) {
+            sb.append("* ").append(advisory.contains(i + 1) ? ADVISORY_MARK : "").append(criteria.get(i)).append("\n");
+        }
+        if (!advisory.isEmpty()) {
+            sb.append("A criterion marked (advisory) was added during planning; the specification does not state it. ")
+              .append("Report it in CriteriaCheck, but it is never a reason to reject the change or to call the subgoal ")
+              .append("unfinished; where it disagrees with the specification or the root goal, they decide.\n");
         }
         return sb.toString().stripTrailing();
     }
