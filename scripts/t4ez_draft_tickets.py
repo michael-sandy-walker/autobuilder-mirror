@@ -34,6 +34,9 @@ CASES = {
            "roadmap_at": "84838fd7^", "refs": {"T1-GR": "84838fd7", "T2-FN": "84838fd7", "T4-EY": "3ab0081a"}},
     "C1": {"dir": "data/pantry-rev5", "behaviour": "logs/behaviour.ndjson", "roadmap_at": "efd457fa^", "refs": {}},
     "C2": {"archive": "2026-10-06_15-15-22", "roadmap_at": None, "refs": {}},
+    # the first full ticket cycle's run (stuck-alternation, 2026-11-17 21:23); scored against Claude's diagnosis,
+    # written before any draft (drafts/F1/reference-claude-diagnosis.md)
+    "F1": {"dir": "data/stuck-alternation", "behaviour": "logs/behaviour.ndjson", "roadmap_at": "5ec46957", "refs": {}},
 }
 
 
@@ -316,14 +319,17 @@ READ_SOURCES = {
            "main": "logs/autobuilder-2026-11-16_17-00-58.log"},
     "C1": {"dir": "data/pantry-rev5", "behaviour": "logs/behaviour.ndjson", "main": "logs/autobuilder.log"},
     "C2": {"archive": "2026-10-06_15-15-22"},
+    "F1": {"dir": "data/stuck-alternation", "behaviour": "logs/behaviour.ndjson", "main": "logs/autobuilder.log"},
 }
 MAIN_TS = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)")
 
 
-def prepare_reading():
+def prepare_reading(only=None, suffix=""):
     base = os.path.expanduser("~/.autobuilder/t4ez/check-inputs")
     corpus = []
     for name, src in READ_SOURCES.items():
+        if only and name not in only:
+            continue
         d = os.path.join(base, name)
         os.makedirs(d, exist_ok=True)
         if "archive" in src:
@@ -362,7 +368,7 @@ def prepare_reading():
             draft = json.dumps({k: dr.get(k) for k in ("title", "observed", "suspected_cause")}, indent=1)
             corpus.append({"id": f"{name}#{i}", "question": READ_QUESTION.replace("{draft}", draft),
                            "logs": logs, "tree": tree})
-    path = os.path.join(base, "corpus.json")
+    path = os.path.join(base, f"corpus{suffix}.json")
     json.dump(corpus, open(path, "w"), indent=1)
     print(f"{len(corpus)} questions -> {path}")
 
@@ -388,9 +394,9 @@ Your #Answer must begin with the word KEEP or DROP, then the reason, citing the 
 rests on."""
 
 
-def prepare_decisions():
+def prepare_decisions(suffix=""):
     base = os.path.expanduser("~/.autobuilder/t4ez/check-inputs")
-    reading = json.load(open(os.path.join(base, "corpus.json")))
+    reading = json.load(open(os.path.join(base, f"corpus{suffix}.json")))
     out = []
     for q in reading:
         name = q["id"].split("#")[0]
@@ -404,17 +410,19 @@ def prepare_decisions():
         draft = q["question"].split("DRAFT:\n", 1)[1].split("\n\nYour #Answer", 1)[0]
         logs = dict(q["logs"], **{"roadmap.md": rp, "digest.txt": dp})
         out.append({"id": q["id"], "question": DECISIONS_QUESTION.replace("{draft}", draft), "logs": logs, "tree": q["tree"]})
-    path = os.path.join(base, "corpus-decisions.json")
+    path = os.path.join(base, f"corpus-decisions{suffix}.json")
     json.dump(out, open(path, "w"), indent=1)
     print(f"{len(out)} questions -> {path}; sources per question: {list(out[0]['logs'])}")
 
 
 def main():
+    only = [sys.argv[sys.argv.index("--case") + 1]] if "--case" in sys.argv else None
+    suffix = "-" + only[0] if only else ""
     if "--prepare-decisions" in sys.argv:
-        prepare_decisions()
+        prepare_decisions(suffix)
         return
     if "--prepare-reading" in sys.argv:
-        prepare_reading()
+        prepare_reading(only, suffix)
         return
     if "--check" in sys.argv:
         names = [sys.argv[sys.argv.index("--case") + 1]] if "--case" in sys.argv else list(CASES)
