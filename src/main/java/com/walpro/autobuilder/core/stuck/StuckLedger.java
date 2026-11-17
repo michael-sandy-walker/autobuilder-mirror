@@ -1,6 +1,7 @@
 package com.walpro.autobuilder.core.stuck;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +38,14 @@ public final class StuckLedger {
                            String deliveredToSubGoal) {
     }
 
+    /** T4-EU: two CLOSURE_REFUSAL signatures whose counted sightings alternate in at least four runs. */
+    public record AlternatingPair(String first, String second, List<String> firstCycles, List<String> secondCycles) {
+    }
+
+    /** One sighting of a signature, in the order the ledger counted it. */
+    private record Sighting(long seq, String signature, String cycleId) {
+    }
+
     /** What the ledger holds for one signature. */
     public static final class Entry {
         final StuckObservation.Source source;
@@ -65,6 +74,8 @@ public final class StuckLedger {
         long deliveredSeq;
         /** T4-CT: what earlier runs of this task recorded for the signature; NONE when nothing. */
         StuckPriors.Prior prior = StuckPriors.Prior.NONE;
+        /** T4-EU: every counted sighting of this signature, oldest first. */
+        final List<Sighting> sightings = new ArrayList<>();
 
         Entry(StuckObservation.Source source, String signature) {
             this.source = source;
@@ -87,6 +98,14 @@ public final class StuckLedger {
         public boolean diagnosisRequested() { return diagnosisRequested; }
         public boolean withheld() { return withheld; }
         public StuckPriors.Prior prior() { return prior; }
+
+        /** T4-EU: the cycle id of each sighting the ledger counted, oldest first. */
+        public List<String> cycles() {
+            List<String> out = new ArrayList<>(sightings.size());
+            for (Sighting s : sightings) out.add(s.cycleId());
+            // Null-safe (port review, 2026-11-17): observe() accepts a sighting without a cycle id; List.copyOf would throw.
+            return Collections.unmodifiableList(out);
+        }
 
         /** The last answer delivered, or null. */
         public String deliveredAnswer() {
@@ -171,6 +190,7 @@ public final class StuckLedger {
         e.lastObservedSeq = ++seq;
         if (e.firstCycle == null) e.firstCycle = o.cycleId();
         e.lastCycle = o.cycleId();
+        e.sightings.add(new Sighting(e.lastObservedSeq, o.signature(), o.cycleId()));
         switch (e.status) {
             case WATCHING -> {
                 if (e.occurrences >= noticeAt(e)) {
@@ -342,6 +362,75 @@ public final class StuckLedger {
     /** Every entry, in first-seen order. */
     public synchronized List<Entry> entries() {
         return List.copyOf(entries.values());
+    }
+
+    /**
+     * T4-EU: the CLOSURE_REFUSAL signatures whose counted sightings, merged in the order the ledger counted
+     * them, form at least four runs (A, B, A, B ...). Each pair is named once, ordered by the first sighting
+     * of first, then of second.
+     */
+    public synchronized List<AlternatingPair> alternatingPairs() {
+        List<Entry> closureEntries = entries.values().stream()
+                .filter(e -> e.source == StuckObservation.Source.CLOSURE_REFUSAL)
+                .filter(e -> !e.sightings.isEmpty())
+                .toList();
+
+        List<AlternatingPair> pairs = new ArrayList<>();
+        for (int i = 0; i < closureEntries.size(); i++) {
+            for (int j = i + 1; j < closureEntries.size(); j++) {
+                Entry a = closureEntries.get(i);
+                Entry b = closureEntries.get(j);
+                AlternatingPair pair = tryPair(a, b);
+                if (pair != null) pairs.add(pair);
+            }
+        }
+        pairs.sort((p1, p2) -> {
+            Entry e1a = findEntry(p1.first());
+            Entry e1b = findEntry(p1.second());
+            Entry e2a = findEntry(p2.first());
+            Entry e2b = findEntry(p2.second());
+            if (e1a == null || e2a == null) return 0;
+            int cmp = Long.compare(e1a.sightings.get(0).seq(), e2a.sightings.get(0).seq());
+            if (cmp != 0) return cmp;
+            if (e1b == null || e2b == null) return 0;
+            return Long.compare(e1b.sightings.get(0).seq(), e2b.sightings.get(0).seq());
+        });
+        return List.copyOf(pairs);
+    }
+
+    private Entry findEntry(String signature) {
+        for (Entry e : entries.values()) {
+            if (e.signature.equals(signature) && e.source == StuckObservation.Source.CLOSURE_REFUSAL) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    private static AlternatingPair tryPair(Entry a, Entry b) {
+        List<Sighting> merged = new ArrayList<>(a.sightings.size() + b.sightings.size());
+        merged.addAll(a.sightings);
+        merged.addAll(b.sightings);
+        merged.sort((s1, s2) -> Long.compare(s1.seq(), s2.seq()));
+
+        int runs = 1;
+        for (int i = 1; i < merged.size(); i++) {
+            if (!merged.get(i).signature().equals(merged.get(i - 1).signature())) {
+                runs++;
+            }
+        }
+        if (runs < 4) return null;
+
+        List<String> firstCycles = new ArrayList<>();
+        List<String> secondCycles = new ArrayList<>();
+        for (Sighting s : merged) {
+            if (s.signature().equals(a.signature)) {
+                firstCycles.add(s.cycleId());
+            } else {
+                secondCycles.add(s.cycleId());
+            }
+        }
+        return new AlternatingPair(a.signature, b.signature, List.copyOf(firstCycles), List.copyOf(secondCycles));
     }
 
     /** The ledger as plain data, for the run's ledger file. */
