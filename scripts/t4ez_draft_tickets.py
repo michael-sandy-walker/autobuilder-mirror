@@ -33,12 +33,15 @@ CASES = {
     "R3": {"dir": "data/gradient-t1gq2", "behaviour": "logs/behaviour-2026-11-16_17-01-01.ndjson",
            "roadmap_at": "84838fd7^", "refs": {"T1-GR": "84838fd7", "T2-FN": "84838fd7", "T4-EY": "3ab0081a"}},
     "C1": {"dir": "data/pantry-rev5", "behaviour": "logs/behaviour.ndjson", "roadmap_at": "efd457fa^", "refs": {}},
-    "C2": {"archive": "2026-10-06_15-15-22", "roadmap_at": None, "refs": {}},
+    "C2": {"archive": "2026-10-06_15-15-22", "roadmap_at": None, "refs": {}, "verdict_run": "2026-10-06_15-15-22"},
     # the first full ticket cycle's run (stuck-alternation, 2026-11-17 21:23); scored against Claude's diagnosis,
     # written before any draft (drafts/F1/reference-claude-diagnosis.md)
-    "F1": {"dir": "data/stuck-alternation", "behaviour": "logs/behaviour.ndjson", "roadmap_at": "5ec46957", "refs": {}},
+    "F1": {"dir": os.path.expanduser("~/.autobuilder/field-forward2/prev"), "behaviour": "logs/behaviour.ndjson",
+           "roadmap_at": "5ec46957", "refs": {}, "verdict_run": "2026-11-17_21-23-21",
+           "seed": "data/stuck-alternation/bootstrap/seed.txt"},
     # the second run (build with T1-GS, 2026-11-17 22:50); F1's files were moved to ~/.autobuilder/field-forward2/prev
-    "F2": {"dir": "data/stuck-alternation", "behaviour": "logs/behaviour.ndjson", "roadmap_at": "6debd647", "refs": {}},
+    "F2": {"dir": "data/stuck-alternation", "behaviour": "logs/behaviour.ndjson", "roadmap_at": "6debd647", "refs": {},
+           "verdict_run": "2026-11-17_22-50-08", "seed": "data/stuck-alternation/bootstrap/seed.txt"},
 }
 
 
@@ -100,7 +103,78 @@ def hhmm(e):
     return (e.get("timestamp") or "")[11:19]
 
 
+VARIANT = ""   # "" = the digest as measured on 2026-11-17 (arm 1); "v2" = with ticket, verdict and grounding
+
+
+def goal_tree(case):
+    if "archive" in case:
+        return json.load(gzip.open(os.path.join(ARCHIVE, case["archive"], "GoalStack.json.gz")))
+    p = os.path.join(ROOT, case["dir"], "meta/GoalStack.json")
+    return json.load(open(p)) if os.path.exists(p) else {}
+
+
+def walk_goals(x, out):
+    if isinstance(x, dict):
+        if "id" in x and ("description" in x or "type" in x):
+            out.append(x)
+        for v in x.values():
+            walk_goals(v, out)
+    elif isinstance(x, list):
+        for v in x:
+            walk_goals(v, out)
+    return out
+
+
+def ticket_section(case):
+    """TICKET: the operator's text the run was given -- the seed file, else the seed input, else the root goal."""
+    if case.get("seed"):
+        return open(os.path.join(ROOT, case["seed"])).read()
+    if "dir" in case:
+        p = os.path.join(ROOT, case["dir"], "meta/inputs.json")
+        if os.path.exists(p):
+            seeds = [i for i in json.load(open(p)).get("inputs", []) if i.get("kind") == "seed"]
+            if seeds:
+                return seeds[0].get("content") or ""
+    roots = [g for g in walk_goals(goal_tree(case), []) if g.get("type") == "GOAL"]
+    return roots[0].get("description", "") if roots else "(not found)"
+
+
+def verdict_section(case):
+    """EXTERNAL VERDICT: the operator's yardstick on the run's final tree, which the loop never sees."""
+    run = case.get("verdict_run")
+    if not run:
+        return "none recorded (this run had no external yardstick)"
+    d = os.path.join(ARCHIVE, run)
+    summary = [l for l in open(os.path.join(d, "summary.txt")) if l.startswith(("terminal=", "smoke="))]
+    checks = open(os.path.join(d, "preserved-smoke.txt")).read() if os.path.exists(os.path.join(d, "preserved-smoke.txt")) else ""
+    return "".join(summary) + checks
+
+
+def authored_section(case):
+    """REQUIREMENTS THE LOOP ADDED: per goal, the criteria its grounding check stamped AUTHORED."""
+    lines = []
+    for g in walk_goals(goal_tree(case), []):
+        md = g.get("metadata") or {}
+        crit, binding = md.get("acceptanceCriteria") or [], md.get("criteriaBinding") or {}
+        added = [c for i, c in enumerate(crit, 1) if binding.get(str(i)) == "AUTHORED"]
+        if added:
+            lines.append(f"  goal '{cut(g.get('description'), 120)}' ({g.get('status')}):")
+            lines += [f"    - {cut(c, 200)}" for c in added]
+    return "\n".join(lines) if lines else "  (none stamped)"
+
+
 def digest(case):
+    head = ""
+    if VARIANT == "v2":
+        head = ("TICKET (the operator's text the run was given):\n" + cut(ticket_section(case), 2500)
+                + "\n\nEXTERNAL VERDICT (the operator's own check of the run's final result; the loop never saw it):\n"
+                + verdict_section(case)[:3000]
+                + "\n\nREQUIREMENTS THE LOOP ADDED (criteria its own grounding check found NOT stated by the ticket):\n"
+                + authored_section(case)[:3000] + "\n\n")
+    return head + digest_v1(case)
+
+
+def digest_v1(case):
     if "archive" in case:
         d = os.path.join(ARCHIVE, case["archive"])
         evs = list(events_from(os.path.join(d, "behaviour.ndjson.gz")))
@@ -185,7 +259,7 @@ itself (not of the target project's code): a check that judged wrongly, a mechan
 work repeated without progress, a decision recorded wrongly, requirements that should not have been in force, a
 missing capability the run needed. Quote the evidence lines that show it.
 
-For each finding write a draft ticket. If an existing ticket in the index already covers it, give its ID instead
+{verdict_rule}For each finding write a draft ticket. If an existing ticket in the index already covers it, give its ID instead
 of a new ticket. If the run shows nothing Autobuilder should change, say so -- do not invent work.
 
 Answer with JSON only:
@@ -214,14 +288,16 @@ def ask(prompt, reasoning):
 
 def run_case(name, digest_only, reasoning):
     case = CASES[name]
-    out = os.path.join(OUT, name + ("" if reasoning == "none" else "-reasoning"))
+    out = os.path.join(OUT, name + ("" if reasoning == "none" else "-reasoning") + (("-" + VARIANT) if VARIANT else ""))
     os.makedirs(out, exist_ok=True)
     at = case["roadmap_at"]
     if at is None:   # a control from the archive: the roadmap as it stood at the run's date
         at = roadmap_at_date(case["archive"][:10] + " " + case["archive"][11:].replace("-", ":"))
     index = roadmap_index(at)
     ev = digest(case)
-    prompt = PROMPT.replace("{roadmap}", "\n".join(index)).replace("{evidence}", ev)
+    rule = ("Where the external verdict disagrees with the loop's own conclusion (the loop closed but the verdict "
+            "failed, or the reverse), explaining that disagreement comes first.\n" if VARIANT == "v2" else "")
+    prompt = PROMPT.replace("{roadmap}", "\n".join(index)).replace("{evidence}", ev).replace("{verdict_rule}", rule)
     open(os.path.join(out, "prompt.txt"), "w").write(prompt)
     for tid, commit in case["refs"].items():
         open(os.path.join(out, f"reference-{tid}.md"), "w").write(reference(commit, tid) or "(not found)")
@@ -321,7 +397,8 @@ READ_SOURCES = {
            "main": "logs/autobuilder-2026-11-16_17-00-58.log"},
     "C1": {"dir": "data/pantry-rev5", "behaviour": "logs/behaviour.ndjson", "main": "logs/autobuilder.log"},
     "C2": {"archive": "2026-10-06_15-15-22"},
-    "F1": {"dir": "data/stuck-alternation", "behaviour": "logs/behaviour.ndjson", "main": "logs/autobuilder.log"},
+    "F1": {"dir": os.path.expanduser("~/.autobuilder/field-forward2/prev"), "behaviour": "logs/behaviour.ndjson",
+           "main": "logs/autobuilder.log"},
     "F2": {"dir": "data/stuck-alternation", "behaviour": "logs/behaviour.ndjson", "main": "logs/autobuilder.log"},
 }
 MAIN_TS = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)")
@@ -419,6 +496,9 @@ def prepare_decisions(suffix=""):
 
 
 def main():
+    global VARIANT
+    if "--variant" in sys.argv:
+        VARIANT = sys.argv[sys.argv.index("--variant") + 1]
     only = [sys.argv[sys.argv.index("--case") + 1]] if "--case" in sys.argv else None
     suffix = "-" + only[0] if only else ""
     if "--prepare-decisions" in sys.argv:
