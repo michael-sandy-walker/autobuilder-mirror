@@ -292,7 +292,85 @@ def check_case(name):
     json.dump(results, open(os.path.join(out, "check.json"), "w"), indent=1)
 
 
+READ_QUESTION = """A reviewer read the evidence of one Autobuilder run and drafted the ticket below, claiming that
+Autobuilder's OWN code misbehaved (Autobuilder evolves software projects with language models; the logs are its
+logs, the project files are the target project it worked on).
+
+Check the draft against what the logs and the files actually show. Keep it only if your probes bear out BOTH:
+(a) the observed misbehaviour actually happened as described (what came before what, a status, a count, what a
+file or test really contains), and
+(b) it is a fault of Autobuilder. A check or mechanism doing what it was built to do can still be the fault: if
+its verdict or effect was wrong given what actually happened (it judged something it misread, it undid another
+mechanism's decision, it kept a requirement that should not hold), that counts. Drop only when your probes show
+the behaviour was right given the facts, or the claim is not borne out.
+
+DRAFT:
+{draft}
+
+Your #Answer must begin with the word KEEP or DROP, then the reason, citing the log lines or file lines it rests on."""
+
+READ_SOURCES = {
+    "R1": {"dir": "data/pantry-rev3", "behaviour": "logs/behaviour.ndjson", "main": "logs/autobuilder.log"},
+    "R2": {"dir": "data/gradient", "behaviour": "logs/behaviour.ndjson", "main": "logs/autobuilder.log"},
+    "R3": {"dir": "data/gradient-t1gq2", "behaviour": "logs/behaviour-2026-11-16_17-01-01.ndjson",
+           "main": "logs/autobuilder-2026-11-16_17-00-58.log"},
+    "C1": {"dir": "data/pantry-rev5", "behaviour": "logs/behaviour.ndjson", "main": "logs/autobuilder.log"},
+    "C2": {"archive": "2026-10-06_15-15-22"},
+}
+MAIN_TS = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)")
+
+
+def prepare_reading():
+    base = os.path.expanduser("~/.autobuilder/t4ez/check-inputs")
+    corpus = []
+    for name, src in READ_SOURCES.items():
+        d = os.path.join(base, name)
+        os.makedirs(d, exist_ok=True)
+        if "archive" in src:
+            a = os.path.join(ARCHIVE, src["archive"])
+            beh = gzip.open(os.path.join(a, "behaviour.ndjson.gz"), "rt", errors="replace").read()
+            main = gzip.open(os.path.join(a, "autobuilder.log.gz"), "rt", errors="replace").read()
+            tree = os.path.join(d, "tree")
+            os.makedirs(tree, exist_ok=True)
+            subprocess.run(["tar", "-xzf", os.path.join(a, "artifact-src.tar.gz"), "-C", tree], check=True)
+            extra = {}
+        else:
+            pd = os.path.join(ROOT, src["dir"])
+            beh = open(os.path.join(pd, src["behaviour"]), errors="replace").read()
+            main = open(os.path.join(pd, src["main"]), errors="replace").read()
+            tree = os.path.join(pd, "output")
+            extra = {"inputs.json": os.path.join(pd, "meta/inputs.json")}
+            for i, lp in enumerate(glob.glob(os.path.join(pd, "meta/inputs/*/landing.json"))):
+                extra[f"landing-{i + 1}.json"] = lp
+        stamps = re.findall(r'"timestamp" : "([^"]+)"', beh)
+        end = max(stamps)[:19].replace("T", " ") if stamps else "9999"
+        kept, cut_at = [], None
+        for line in main.split("\n"):
+            m = MAIN_TS.match(line)
+            if m and m.group(1) > end:
+                cut_at = m.group(1)
+                break
+            kept.append(line)
+        logs = {"behaviour.ndjson": os.path.join(d, "behaviour.ndjson"), "autobuilder.log": os.path.join(d, "autobuilder.log")}
+        open(logs["behaviour.ndjson"], "w").write(beh)
+        open(logs["autobuilder.log"], "w").write("\n".join(kept))
+        for k, v in extra.items():
+            if os.path.exists(v):
+                logs[k] = v
+        print(f"{name}: run ends {end}; main log cut at {cut_at} ({len(kept)} lines kept); tree {tree}; logs {list(logs)}")
+        for i, dr in enumerate(parse_drafts(open(os.path.join(OUT, name, "answer.txt")).read()), 1):
+            draft = json.dumps({k: dr.get(k) for k in ("title", "observed", "suspected_cause")}, indent=1)
+            corpus.append({"id": f"{name}#{i}", "question": READ_QUESTION.replace("{draft}", draft),
+                           "logs": logs, "tree": tree})
+    path = os.path.join(base, "corpus.json")
+    json.dump(corpus, open(path, "w"), indent=1)
+    print(f"{len(corpus)} questions -> {path}")
+
+
 def main():
+    if "--prepare-reading" in sys.argv:
+        prepare_reading()
+        return
     if "--check" in sys.argv:
         names = [sys.argv[sys.argv.index("--case") + 1]] if "--case" in sys.argv else list(CASES)
         for n in names:
