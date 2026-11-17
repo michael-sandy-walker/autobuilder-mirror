@@ -239,7 +239,65 @@ def run_case(name, digest_only, reasoning):
     print(json.dumps(drafts, indent=1)[:6000] if drafts else content[:4000])
 
 
+CHECK = """While Autobuilder (a system that evolves software projects with language models) ran on a target project,
+a reviewer read the run's evidence and drafted the ticket below, claiming Autobuilder's OWN code misbehaved.
+
+Your job is to check the draft against the evidence -- nothing else. Keep it only if the evidence bears out BOTH:
+(a) the observed misbehaviour actually happened as described (quotes are real and read correctly: a status, a
+count, a time, what came before what), and
+(b) it is a fault of Autobuilder -- not a check correctly refusing incomplete work, not the target's own code
+being unfinished, not a mechanism doing what it is designed to do, not a problem that ended by itself.
+If either is not borne out, drop it.
+
+=== DRAFT ===
+{draft}
+
+=== RUN EVIDENCE ===
+{evidence}
+
+Answer with JSON only: {"verdict": "keep" or "drop", "why": "<one or two sentences>"}"""
+
+
+def parse_drafts(text):
+    m = re.search(r"\{.*\}", text or "", re.S)
+    try:
+        return (json.loads(m.group(0)) if m else {}).get("drafts") or []
+    except ValueError:
+        return []
+
+
+def check_case(name):
+    case = CASES[name]
+    out = os.path.join(OUT, name)
+    ev = digest(case)
+    drafts = parse_drafts(open(os.path.join(out, "answer.txt")).read())
+    orig = parse_drafts(open(os.path.join(OUT, "arm1-original", name + "-answer.txt")).read())
+    same = [d.get("title") for d in drafts] == [d.get("title") for d in orig]
+    print(f"{name}: {len(drafts)} drafts; identical titles to arm 1: {same}")
+    results = []
+    for i, d in enumerate(drafts, 1):
+        draft = json.dumps({k: d.get(k) for k in ("title", "observed", "suspected_cause")}, indent=1)
+        try:
+            resp = ask(CHECK.replace("{draft}", draft).replace("{evidence}", ev), "default")
+            content = resp["choices"][0]["message"]["content"] or ""
+            usage = resp.get("usage") or {}
+            m = re.search(r"\{.*\}", content, re.S)
+            v = json.loads(m.group(0)) if m else {}
+        except Exception as ex:   # no answer = drop, reported
+            v, usage = {"verdict": "drop", "why": f"no usable answer ({ex})"}, {}
+        verdict = v.get("verdict") if v.get("verdict") in ("keep", "drop") else "drop"
+        results.append({"n": i, "title": d.get("title"), "verdict": verdict, "why": v.get("why"), "usage": usage})
+        print(f"   #{i} {verdict.upper():4s} {d.get('title', '')[:90]}\n        why: {str(v.get('why'))[:300]}  "
+              f"[tokens {usage.get('prompt_tokens')}+{usage.get('completion_tokens')}]", flush=True)
+    json.dump(results, open(os.path.join(out, "check.json"), "w"), indent=1)
+
+
 def main():
+    if "--check" in sys.argv:
+        names = [sys.argv[sys.argv.index("--case") + 1]] if "--case" in sys.argv else list(CASES)
+        for n in names:
+            check_case(n)
+        return
     names = [sys.argv[sys.argv.index("--case") + 1]] if "--case" in sys.argv else list(CASES)
     reasoning = sys.argv[sys.argv.index("--reasoning") + 1] if "--reasoning" in sys.argv else "none"
     for n in names:
