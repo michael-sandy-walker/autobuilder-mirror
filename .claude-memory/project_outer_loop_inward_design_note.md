@@ -78,6 +78,15 @@ target.
   evidence confirms it (the same question ended both; the same kind of change ended both). Last, and only if L1
   leaves a measured gap.
 
+**The unit of similarity is a CASE: situation -> action -> result (the user, 2026-11-17; supersedes the
+signature-as-unit framing above).** A situation is a decision point in a run where a response or verdict came back
+with a dilemma (an evaluator rejection with its reason, a closure refusal, requirements pulling apart, an answer
+contradicting the files); the action is what the loop did next; the result is what followed (merged, the same
+dilemma again, another problem, solved within N cycles). The loop meeting a situation asks: in similar cases in other
+runs and projects, which action led to a good result? Value exists only if situations recur, actions in them lead to
+different results, and the action that worked carries across projects. The lenses below describe a situation; the
+measurements of 2026-11-17 on the ticket tested the stuck ledger's ENDINGS, not this.
+
 **Lenses for "is this a similar problem?" (2026-11-17, after the user called measurement (a) "a very flat
 evaluation": (a) compared only the signature's template).** Each lens is its own measurement on the T4-EZ ticket,
 rule first. Lenses 1 and 2 are measured (ticket, 2026-11-17); 3-6 are not started.
