@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -203,7 +202,13 @@ public class IdiomSkeletonResolver implements CompileFixResolver, Ordered {
         // skeleton the referencing code cannot see is a guaranteed wasted probe (observed
         // 2026-06-10 16:21: exception skeleton created in `.exception` while the reference
         // imported `.member`; identical re-probe failure 3 s later).
-        String fqPackage = referenceDerivedPackage(missingToken).orElse(conventionPackage);
+        Optional<String> placed = SkeletonPlacement.packageFor(missingToken, stderr, projectSources(), conventionPackage);
+        if (placed.isEmpty()) {
+            log.info("IdiomSkeletonResolver: no top-level skeleton can satisfy the reference to {} -- none created",
+                    missingToken);
+            return Optional.empty();
+        }
+        String fqPackage = placed.get();
         String relPath = "src/main/java/"
                 + fqPackage.replace('.', '/')
                 + "/" + missingToken + ".java";
@@ -224,61 +229,30 @@ public class IdiomSkeletonResolver implements CompileFixResolver, Ordered {
     }
 
     /**
-     * T3-BV: derives the package the on-disk references expect for {@code token}. Precedence:
-     * an explicit {@code import <pkg>.<token>;} anywhere under output/ (the reference says
-     * exactly where it looks), then the declaring package of a file that uses the token
-     * unqualified (same-package resolution). Empty when nothing references the token — the
-     * caller falls back to its naming convention.
+     * The project's Java sources under output/src (main and test), keyed by path relative to output/,
+     * for {@link SkeletonPlacement}. Empty when they cannot be read -- the placement then falls back
+     * to its convention package.
      */
-    private Optional<String> referenceDerivedPackage(String token) {
-        Pattern importLine = Pattern.compile("(?m)^\\s*import\\s+([\\w.]+)\\." + Pattern.quote(token) + "\\s*;");
-        Pattern usage = Pattern.compile("\\b" + Pattern.quote(token) + "\\b");
-        Pattern packageDecl = Pattern.compile("(?m)^\\s*package\\s+([\\w.]+)\\s*;");
-
-        Map<String, Integer> importPackages = new LinkedHashMap<>();
-        Map<String, Integer> usagePackages = new LinkedHashMap<>();
+    private Map<String, String> projectSources() {
+        Map<String, String> sources = new LinkedHashMap<>();
         try {
-            Path javaRoot = fileService.resolveSecurePath("output/src/main/java");
-            if (!Files.isDirectory(javaRoot)) return Optional.empty();
-            try (Stream<Path> walk = Files.walk(javaRoot)) {
-                walk.filter(pth -> pth.toString().endsWith(".java"))
-                        .filter(pth -> !pth.getFileName().toString().equals(token + ".java"))
-                        .forEach(pth -> {
-                            String content;
-                            try {
-                                content = Files.readString(pth);
-                            } catch (Exception e) {
-                                return;
-                            }
-                            Matcher imp = importLine.matcher(content);
-                            if (imp.find()) {
-                                importPackages.merge(imp.group(1), 1, Integer::sum);
-                            } else if (usage.matcher(content).find()) {
-                                Matcher pkg = packageDecl.matcher(content);
-                                if (pkg.find()) usagePackages.merge(pkg.group(1), 1, Integer::sum);
-                            }
-                        });
+            Path output = fileService.resolveSecurePath("output");
+            Path srcRoot = output.resolve("src");
+            if (!Files.isDirectory(srcRoot)) return sources;
+            try (Stream<Path> walk = Files.walk(srcRoot)) {
+                walk.filter(pth -> pth.toString().endsWith(".java")).forEach(pth -> {
+                    try {
+                        sources.put(output.relativize(pth).toString().replace('\\', '/'), Files.readString(pth));
+                    } catch (Exception e) {
+                        // an unreadable file is no reference
+                    }
+                });
             }
         } catch (Exception e) {
-            log.debug("IdiomSkeletonResolver: reference scan failed ({}) — falling back to convention", e.getMessage());
-            return Optional.empty();
+            log.debug("IdiomSkeletonResolver: source scan failed ({}) -- falling back to convention", e.getMessage());
+            return new LinkedHashMap<>();
         }
-
-        Optional<String> fromImports = mostCommon(importPackages);
-        if (fromImports.isPresent()) {
-            log.debug("IdiomSkeletonResolver: placement for {} from import statements: {}", token, fromImports.get());
-            return fromImports;
-        }
-        Optional<String> fromUsage = mostCommon(usagePackages);
-        fromUsage.ifPresent(pkg ->
-                log.debug("IdiomSkeletonResolver: placement for {} from unqualified usage in package {}", token, pkg));
-        return fromUsage;
-    }
-
-    private static Optional<String> mostCommon(Map<String, Integer> counts) {
-        return counts.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
-                .map(Map.Entry::getKey);
+        return sources;
     }
 
     /** Min CamelCase token-set overlap (Jaccard) for two same-head/same-suffix names to count as one concept. */
