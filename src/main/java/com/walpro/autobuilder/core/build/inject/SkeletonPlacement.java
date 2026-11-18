@@ -10,17 +10,24 @@ import java.util.regex.Pattern;
  * Where a skeleton for a missing class goes: the package the project's references expect, read from
  * text only (no file system, no framework), so the decision can be tested and changed on its own.
  *
- * <p>Precedence (T3-BV): an explicit {@code import <pkg>.<name>;} in a main source (the reference
- * says exactly where it looks), then the declaring package of a main source that uses the name
- * unqualified (same-package resolution), then the caller's convention package. A source file named
- * after the missing class itself is not a reference to it.
+ * <p>T1-GT: empty when the reference is to a MEMBER -- the diagnostic places the missing class in a
+ * class ({@code symbol: class X} followed by {@code location: class a.b.Outer}) and a source writes
+ * {@code Outer.X}. No top-level file in any package satisfies that, and no skeleton is written
+ * (recorded: a top-level {@code core/AlternatingPair.java} for {@code StuckLedger.AlternatingPair}).
+ * A location alone is not enough: the class that uses a name unqualified is reported as its location too.
  *
- * <p>Empty means no top-level file in any package can satisfy the diagnostic, and no skeleton is
- * written. The diagnostic is the compiler output the skeleton answers.
+ * <p>Otherwise, precedence (T3-BV): an explicit {@code import <pkg>.<name>;} in a main or test source
+ * (the reference says exactly where it looks), then the declaring package of a source that uses the
+ * name unqualified (same-package resolution), then the caller's convention package. A source file
+ * named after the missing class itself is not a reference to it.
+ *
+ * <p>The member check and test sources were written by Autobuilder from the T1-GT ticket (T4-EZ's
+ * forward case {@code skeleton-placement} v2); the whole-name matches were added at review.
  */
 public final class SkeletonPlacement {
 
     private static final String MAIN_ROOT = "src/main/java/";
+    private static final String TEST_ROOT = "src/test/java/";
     private static final Pattern PACKAGE_DECL = Pattern.compile("(?m)^\\s*package\\s+([\\w.]+)\\s*;");
 
     private SkeletonPlacement() {
@@ -37,8 +44,56 @@ public final class SkeletonPlacement {
      */
     public static Optional<String> packageFor(String missingClass, String diagnostic, Map<String, String> sources,
                                               String conventionPackage) {
+        if (isMemberReference(missingClass, diagnostic, sources)) {
+            return Optional.empty();
+        }
         Optional<String> referenced = referenceDerivedPackage(missingClass, sources);
         return referenced.isPresent() ? referenced : Optional.ofNullable(conventionPackage);
+    }
+
+    private static boolean isMemberReference(String missingClass, String diagnostic, Map<String, String> sources) {
+        if (diagnostic == null || sources == null || sources.isEmpty()) return false;
+        String locationClass = extractLocationClass(diagnostic, missingClass);
+        if (locationClass == null) return false;
+        String locationSimple = locationClass.substring(locationClass.lastIndexOf('.') + 1);
+        for (Map.Entry<String, String> source : sources.entrySet()) {
+            String path = source.getKey();
+            String content = source.getValue();
+            if (path == null || content == null) continue;
+            if (!path.endsWith(".java")) continue;
+            if (path.endsWith("/" + missingClass + ".java")) continue;
+            if (isQualifiedThroughLocation(missingClass, locationSimple, content)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isQualifiedThroughLocation(String missingClass, String locationSimple, String content) {
+        return Pattern.compile("\\b" + Pattern.quote(locationSimple) + "\\s*\\.\\s*" + Pattern.quote(missingClass) + "\\b")
+                .matcher(content).find();
+    }
+
+    private static String extractLocationClass(String diagnostic, String missingClass) {
+        Pattern symbolLine = Pattern.compile("symbol:\\s*class\\s+" + Pattern.quote(missingClass) + "\\b");
+        String[] lines = diagnostic.split("\n");
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+            if (symbolLine.matcher(line).find()) {
+                for (int j = i + 1; j < lines.length; j++) {
+                    String next = lines[j].trim();
+                    if (next.contains("location:")) {
+                        String loc = next.substring(next.indexOf("location:") + "location:".length()).trim();
+                        if (loc.startsWith("class ")) {
+                            return loc.substring("class ".length()).trim();
+                        }
+                        return null;
+                    }
+                    if (next.contains("symbol:")) break;
+                }
+            }
+        }
+        return null;
     }
 
     private static Optional<String> referenceDerivedPackage(String token, Map<String, String> sources) {
@@ -52,7 +107,8 @@ public final class SkeletonPlacement {
             String path = source.getKey();
             String content = source.getValue();
             if (path == null || content == null) continue;
-            if (!path.startsWith(MAIN_ROOT) || !path.endsWith(".java")) continue;
+            if (!path.startsWith(MAIN_ROOT) && !path.startsWith(TEST_ROOT)) continue;
+            if (!path.endsWith(".java")) continue;
             if (path.endsWith("/" + token + ".java")) continue;
             Matcher imp = importLine.matcher(content);
             if (imp.find()) {

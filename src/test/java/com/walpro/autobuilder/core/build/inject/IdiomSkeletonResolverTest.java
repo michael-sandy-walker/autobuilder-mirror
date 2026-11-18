@@ -403,6 +403,66 @@ class IdiomSkeletonResolverTest {
     }
 
     @Test
+    void noSkeletonForAMemberReference_theRecordedStuckLedgerCase() throws Exception {
+        when(grounding.definedSymbolsInOutput()).thenReturn(Set.of());
+        // T1-GT, recorded in both stuck-alternation runs (2026-11-17): the loop's own test wrote
+        // StuckLedger.AlternatingPair, javac placed the missing class in StuckLedger, and this resolver
+        // created a top-level core/AlternatingPair.java that no reference could ever see.
+        IdiomSkeletonResolver r = resolverWithProject("com/walpro/autobuilder/core/stuck/StuckLedger.java", """
+                package com.walpro.autobuilder.core.stuck;
+                public class StuckLedger {
+                }
+                """);
+        Path test = tmp.resolve("output/src/test/java/com/walpro/autobuilder/core/stuck/StuckLedgerAlternatingPairsTest.java");
+        Files.createDirectories(test.getParent());
+        Files.writeString(test, """
+                package com.walpro.autobuilder.core.stuck;
+                class StuckLedgerAlternatingPairsTest {
+                    java.util.List<StuckLedger.AlternatingPair> pairs;
+                }
+                """);
+        String stderr = """
+                [ERROR] /x/src/test/java/com/walpro/autobuilder/core/stuck/StuckLedgerAlternatingPairsTest.java:[25,25] cannot find symbol
+                [ERROR]   symbol:   class AlternatingPair
+                [ERROR]   location: class com.walpro.autobuilder.core.stuck.StuckLedger
+                """;
+
+        assertThat(r.resolve(cls(Kind.CANNOT_FIND_SYMBOL), "AlternatingPair", stderr, ctx("com.walpro.autobuilder.core")))
+                .isEmpty();
+    }
+
+    @Test
+    void plainClass_atTheTestSourcesPackage_whenOnlyATestReferencesIt() throws Exception {
+        when(grounding.definedSymbolsInOutput()).thenReturn(Set.of());
+        // T1-GT: a reference in a test source counts; before, only main sources were read and the
+        // skeleton fell back to the base package.
+        IdiomSkeletonResolver r = resolverWithProject("com/example/library/Other.java", """
+                package com.example.library;
+                public class Other {
+                }
+                """);
+        Path test = tmp.resolve("output/src/test/java/com/example/library/loan/LoanTest.java");
+        Files.createDirectories(test.getParent());
+        Files.writeString(test, """
+                package com.example.library.loan;
+                class LoanTest {
+                    Loan loan;
+                }
+                """);
+        String stderr = """
+                [ERROR] /x/src/test/java/com/example/library/loan/LoanTest.java:[3,5] cannot find symbol
+                [ERROR]   symbol:   class Loan
+                [ERROR]   location: class com.example.library.loan.LoanTest
+                """;
+
+        Optional<FixProposal> out = r.resolve(cls(Kind.CANNOT_FIND_SYMBOL), "Loan", stderr, ctx("com.example.library"));
+
+        assertThat(out).isPresent();
+        assertThat(out.get().mutations().get(0).path())
+                .isEqualTo("src/main/java/com/example/library/loan/Loan.java");
+    }
+
+    @Test
     void plainClass_notCreatedForMethodOrVariableDiagnostics() throws Exception {
         when(grounding.definedSymbolsInOutput()).thenReturn(Set.of());
         IdiomSkeletonResolver r = resolverWithProject("com/example/library/LoanService.java", """
