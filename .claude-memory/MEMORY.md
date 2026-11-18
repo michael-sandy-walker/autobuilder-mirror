@@ -91,6 +91,7 @@ How to work:
 - `feedback_no_heavy_mvn_beside_a_live_run.md`: no suite/tests/graph queries beside a live run; pgrep the driver first. (reviewed 2026-11-03)
 - `feedback_side_tests_must_not_share_lineage.md`: a scratch copy must not carry `meta/run-identity.json` -- it writes onto the real project in the shared graph. (reviewed 2026-11-03)
 - `feedback_options_before_building_and_stop_weak_batches.md`: real options before building; stop weak batches; prose, recommend, no lettered menu; read the area's ticket decisions before proposing a redesign. (reviewed 2026-11-07)
+- `feedback_a_question_is_not_a_work_order.md`: a plain question gets a plain answer; no scans/ticket edits/commits/plans unless asked (2026-11-18). (reviewed 2026-11-18)
 - `feedback_flag_ceremony_cost_early.md`: say so BEFORE process costs more than the task. (reviewed 2026-09-08)
 - `feedback_sonnet_for_batch_tickets.md`: mechanical tickets to a Sonnet subagent; design/validation stay here. (reviewed 2026-07-14)
 - `feedback_roadmap_is_the_queue.md`: work comes from the roadmap ONLY. (reviewed 2026-09-10)
