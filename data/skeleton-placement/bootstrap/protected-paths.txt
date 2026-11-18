@@ -1,0 +1,3 @@
+# T4-CQ: paths under output/ the loop may not write, one glob per line.
+# The existing tests are the operator's; the loop may ADD tests (the withheld rung).
+src/test/java/com/walpro/autobuilder/core/build/inject/SkeletonPlacementTest.java

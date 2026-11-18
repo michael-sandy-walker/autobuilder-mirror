@@ -1,0 +1,28 @@
+  An existing project, adopted, and now asked to change. It was written by someone else and it already
+  builds; its existing behaviour is characterised by the tests in src/test/java.
+  The change wanted is written in the ticket that asked for it. In the ticket's own words:
+
+    T1-GT: a skeleton for a missing class goes where its reference can see it, or is not written at all.
+
+    SkeletonPlacement.packageFor(missingClass, diagnostic, sources, conventionPackage) answers the package of a
+    top-level skeleton written for a class the compiler could not find, or empty when no skeleton should be
+    written. Two of its answers are wrong today.
+    (1) A member reference. When the compiler reports the missing class with a class as its location
+    ("symbol: class AlternatingPair" followed by "location: class com.acme.stuck.StuckLedger") and a source
+    writes the name through that class (StuckLedger.AlternatingPair), the missing class is a member of
+    StuckLedger: no top-level file in any package satisfies the reference, so packageFor returns empty.
+    The location alone is not enough: a class that uses the missing name unqualified is reported as the
+    location too, and then the answer stays as it is. The diagnostic may name several missing symbols; each
+    location belongs to the symbol line just before it.
+    (2) Test sources. A source under src/test/java counts as a reference the same way one under src/main/java
+    does: its import names the package, otherwise its own package when it uses the name unqualified.
+    Everything else stays: an import before an unqualified use, the most common package first, a file named
+    after the missing class is no reference to it, and the convention package when nothing references the
+    name. The existing tests stay as they are.
+
+  The one class to change is SkeletonPlacement.
+  Write the tests the change needs yourself, beside the existing ones; the operator will check the
+  change with tests of their own.
+
+  DO NOT modify the existing tests under src/test: they are the operator's, and if one of them fails, the
+  code is what is wrong. Keep the project's packages, classes and naming.
