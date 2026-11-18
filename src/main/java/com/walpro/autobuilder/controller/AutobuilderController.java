@@ -677,6 +677,29 @@ public class AutobuilderController {
         }
     }
 
+    /**
+     * T4-EY step 2: the import's decisions checked against each other and against the project's -- before keep, a
+     * warning the operator may skip. A POST: it asks the model once per pair.
+     */
+    @PostMapping("/inputs/{id}/contradictions")
+    public ResponseEntity<?> contradictions(@PathVariable String id) {
+        if (projectInputService == null) return ResponseEntity.status(503).body(Map.of("error", "inputs are not enabled in this context"));
+        return ResponseEntity.ok(projectInputService.contradictions(id));
+    }
+
+    /** T4-EY step 2, Edit: a decision of a pending import opened again; the ledger keeps it as history. */
+    @PostMapping("/inputs/conflicts/{id}/reopen")
+    public ResponseEntity<?> reopenConflict(@PathVariable String id, @RequestParam(defaultValue = "operator") String by) {
+        if (projectInputService == null) return ResponseEntity.status(503).body(Map.of("error", "inputs are not enabled in this context"));
+        try {
+            return ResponseEntity.ok(projectInputService.reopen(id, by));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (java.io.IOException e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     /** T4-EG: a pending import cancelled; it leaves nothing, and the ledger keeps the record. A kept one is refused. */
     @PostMapping("/inputs/{id}/cancel")
     public ResponseEntity<?> cancelInput(@PathVariable String id, @RequestParam(defaultValue = "operator") String by) {

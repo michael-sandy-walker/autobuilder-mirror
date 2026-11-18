@@ -38,6 +38,8 @@ import java.util.TreeMap;
  */
 @Slf4j
 @Service
+@com.walpro.autobuilder.core.checkpoint.StateHolder(value = com.walpro.autobuilder.core.checkpoint.StateBucket.DERIVED_DO_NOT_RESTORE,
+        note = "T4-EY: the pair check's verdicts, keyed by the two decisions' text -- a cache of model answers; an empty one only asks again")
 public class ProjectInputService {
 
     private static final ObjectMapper MAPPER = new ObjectMapper().findAndRegisterModules();
@@ -422,6 +424,158 @@ public class ProjectInputService {
         decidedWork(open.inputId(), line);
         log.warn("T4-EC: conflict '{}' decided by {} with their own resolution: {}", open.subject(), by, resolution);
         return decided;
+    }
+
+    /** T4-EY: two decisions the pair check flagged, or could not ask about, with the model's verdict and reason. */
+    public record DecisionPair(InputEvent first, InputEvent second, String verdict, String reason) {
+    }
+
+    /** T4-EY: what the pair check over an import's decisions found: pairs asked, those flagged, those it could not ask. */
+    public record Contradictions(String inputId, int asked, List<DecisionPair> flagged, List<DecisionPair> unchecked) {
+    }
+
+    /**
+     * T4-EY step 2: before an import is kept, its decisions are checked against each other and against the decisions
+     * already in the project -- {@link #decisionLines} exempts decided lines from retirement, so nothing else ever
+     * compares two decisions (data/gradient: "Remove the menu bar entirely" and "paused and resumed via menu items",
+     * both taken at one landing, ground a run for 47 minutes). Each decision goes to the model with what lies under it
+     * (what each project had, how it was decided, what now holds). A held FILE's decision is code, not a line: it is
+     * left to the code evidence of a later step. A warning, not a refusal: keep stays the operator's.
+     */
+    public List<DecisionPair> pairsOf(String inputId) {
+        var ledger = goals.purpose().ledger();
+        return pairsOf(ledger.events(), ledger::withdrawn, inputId);
+    }
+
+    /** {@link #pairsOf(String)} over a ledger's events: line decisions of inputs not withdrawn, pairs touching {@code inputId}. */
+    static List<DecisionPair> pairsOf(List<InputEvent> events, java.util.function.Predicate<String> withdrawn, String inputId) {
+        List<InputEvent> decisions = events.stream()
+                .filter(e -> (InputEvent.CONFLICT.equals(e.kind()) && !e.open()) || InputEvent.CORRECTION.equals(e.kind()))
+                .filter(e -> e.heldPath() == null && !withdrawn.test(e.inputId()))
+                .toList();
+        List<DecisionPair> pairs = new ArrayList<>();
+        for (int i = 0; i < decisions.size(); i++) {
+            for (int j = i + 1; j < decisions.size(); j++) {
+                InputEvent a = decisions.get(i), b = decisions.get(j);
+                if (inputId.equals(a.inputId()) || inputId.equals(b.inputId())) pairs.add(new DecisionPair(a, b, null, null));
+            }
+        }
+        return pairs;
+    }
+
+    /**
+     * T4-EY step 2: the pair check of {@link #pairsOf}. One screening call over all the decisions involved names the pairs
+     * worth asking; each named pair is then asked in full ({@link InputComparison#together}). A pair's verdict is kept
+     * by the two decisions' text, so after an Edit only pairs with the changed decision are asked again. A failed
+     * screening asks every pair -- a check that could not narrow is slow, not blind.
+     */
+    public Contradictions contradictions(String inputId) {
+        return check(inputId, pairsOf(inputId), comparison, goals.specification(), pairVerdicts);
+    }
+
+    /** {@link #contradictions} over given pairs: the one path, also for a replay of a recorded landing. */
+    static Contradictions check(String inputId, List<DecisionPair> pairs, InputComparison comparison, String spec,
+                                java.util.Map<String, InputComparison.PairVerdict> cache) {
+        List<DecisionPair> flagged = new ArrayList<>(), unchecked = new ArrayList<>();
+        if (pairs.isEmpty()) return new Contradictions(inputId, 0, flagged, unchecked);
+        List<InputEvent> involved = new ArrayList<>();
+        for (DecisionPair p : pairs) {
+            if (!involved.contains(p.first())) involved.add(p.first());
+            if (!involved.contains(p.second())) involved.add(p.second());
+        }
+        List<int[]> named = comparison.screen(spec, involved.stream().map(ProjectInputService::describe).toList());
+        List<DecisionPair> toAsk = new ArrayList<>();
+        for (DecisionPair p : pairs) {
+            int i = involved.indexOf(p.first()) + 1, j = involved.indexOf(p.second()) + 1;
+            boolean screenedIn = named == null || named.stream().anyMatch(n -> n[0] == Math.min(i, j) && n[1] == Math.max(i, j));
+            if (screenedIn) toAsk.add(p);
+        }
+        for (DecisionPair p : toAsk) {
+            String a = describe(p.first()), b = describe(p.second());
+            String key = spec + "\u0000" + (a.compareTo(b) <= 0 ? a + "\u0000" + b : b + "\u0000" + a);
+            InputComparison.PairVerdict v = cache.get(key);
+            if (v == null) {
+                v = comparison.together(spec, a, b);
+                if (v.verdict() != InputComparison.Together.UNKNOWN) cache.put(key, v);
+            }
+            DecisionPair out = new DecisionPair(p.first(), p.second(), v.verdict().name(), v.reason());
+            if (v.verdict() == InputComparison.Together.UNKNOWN) unchecked.add(out);
+            else if (v.verdict() != InputComparison.Together.TOGETHER) flagged.add(out);
+        }
+        log.info("T4-EY: decisions of {} -- {} pair(s), {} screened in{}, {} flagged, {} could not be checked", inputId,
+                pairs.size(), toAsk.size(), named == null ? " (screening failed: all asked)" : "", flagged.size(), unchecked.size());
+        return new Contradictions(inputId, pairs.size(), flagged, unchecked);
+    }
+
+    /** T4-EY: verdicts by the two decisions' text (and the specification), so an unchanged pair is not asked again. */
+    private final java.util.Map<String, InputComparison.PairVerdict> pairVerdicts = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** T4-EY: a decision as the model is shown it -- what each project had, how it was decided, and what now holds. */
+    static String describe(InputEvent e) {
+        StringBuilder sb = new StringBuilder();
+        if (e.heldLine() != null) {
+            sb.append("The project brought in carried this requirement: ").append(e.heldLine()).append('\n');
+            sb.append(InputEvent.FOR_INPUT.equals(e.decision()) ? "Decided: it stays a requirement."
+                    : InputEvent.FOR_OWN.equals(e.decision()) ? "Decided, instead of it, in the operator's words: " + e.resolution()
+                    : "Decided: it is left out -- it is not required.");
+            return sb.toString();
+        }
+        sb.append("On \"").append(e.subject()).append("\" -- the receiving project had: ").append(e.receiving())
+                .append(". The project brought in had: ").append(e.other()).append(".\n");
+        if (InputEvent.CORRECTION.equals(e.kind())) {
+            sb.append("Decided by what the operator said the brought project is for: the brought project's rule holds.\n");
+        } else if (InputEvent.FOR_OWN.equals(e.decision())) {
+            sb.append("Decided, in the operator's words: ").append(e.resolution()).append('\n');
+        } else {
+            sb.append("Decided: the ").append(InputEvent.FOR_INPUT.equals(e.decision()) ? "brought" : "receiving")
+                    .append(" project's rule holds.\n");
+        }
+        String holds = InputEvent.FOR_OWN.equals(e.decision()) ? e.resolution()
+                : InputEvent.FOR_RECEIVING.equals(e.decision()) ? e.receiving() : e.other();
+        return sb.append("Now required: ").append(holds).toString();
+    }
+
+    /**
+     * T4-EY step 2, Edit: a decision of a pending import opened again. What it added -- its line among the input's
+     * requirements and in the import's work -- is taken back; the lines it would retire were never applied (they count
+     * from keep). The decision stays in the ledger as history ({@link InputEvent#REOPENED}). A held file's decision
+     * moved a file and is not reopened here.
+     */
+    public synchronized InputEvent reopen(String id, String by) throws IOException {
+        InputEvent decided = goals.purpose().event(id);
+        if (decided == null || !InputEvent.CONFLICT.equals(decided.kind()) || decided.open()) {
+            throw new IllegalArgumentException("no decided conflict: " + id);
+        }
+        if (decided.heldPath() != null) throw new IllegalArgumentException("a file's decision is not reopened: " + decided.subject());
+        if (!goals.purpose().ledger().pending(decided.inputId())) {
+            throw new IllegalArgumentException("only a decision of a pending import is reopened; a kept import's is changed by a new decision");
+        }
+        String line = decidedLine(decided);
+        if (line != null) {
+            InputEntry input = goals.purpose().ledger().entries().stream().filter(e -> e.id().equals(decided.inputId())).findFirst().orElseThrow();
+            String path = goals.purpose().obligationsPath(input);
+            if (files.exists(path)) {
+                List<String> lines = new ArrayList<>(SeedObligationsFile.read(files.readFile(path), input.content()).obligations());
+                if (lines.remove(line)) files.writeFile(path, SeedObligationsFile.render(input.content(), lines));
+            }
+            String work = "meta/inputs/" + decided.inputId() + WORK_FILE;
+            if (files.exists(work)) {
+                String flat = line.replace('\n', ' ');
+                files.writeFile(work, files.readFile(work).lines().filter(l -> !l.equals(flat))
+                        .map(l -> l + "\n").collect(java.util.stream.Collectors.joining()));
+            }
+        }
+        InputEvent open = goals.purpose().reopen(decided, by);
+        log.warn("T4-EY: decision on '{}' reopened by {}", decided.subject(), by);
+        return open;
+    }
+
+    /** The line a line decision added as a requirement and as work ({@link #decide}); null when it added none. */
+    private static String decidedLine(InputEvent e) {
+        boolean difference = e.heldLine() == null && e.heldPath() == null;
+        if (InputEvent.FOR_OWN.equals(e.decision())) return difference ? e.subject() + ": " + e.resolution() : e.resolution();
+        if (InputEvent.FOR_INPUT.equals(e.decision()) && difference) return e.subject() + ": " + e.other();
+        return null;
     }
 
     /**

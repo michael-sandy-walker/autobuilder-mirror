@@ -319,6 +319,21 @@ public class PurposeService implements CheckpointableState {
                 suggested));
     }
 
+    /**
+     * T4-EY: a decided conflict opened again. The decision stays in the ledger as a {@link InputEvent#REOPENED} event
+     * (what was decided, by whom, in whose words, by whom reopened, when) -- a change is a new record, not an undo -- and
+     * the conflict is open as it was raised.
+     */
+    public synchronized InputEvent reopen(InputEvent decided, String by) {
+        store(new InputEvent("event-" + UUID.randomUUID(), InputEvent.REOPENED, decided.inputId(), decided.subject(),
+                decided.receiving(), decided.other(), decided.heldLine(), decided.heldPath(), decided.replaces(),
+                InputEvent.DECIDED, decided.decision(), decided.by() + "; reopened by " + by, Instant.now(),
+                decided.resolution(), decided.suggested()));
+        return store(new InputEvent(decided.id(), decided.kind(), decided.inputId(), decided.subject(), decided.receiving(),
+                decided.other(), decided.heldLine(), decided.heldPath(), List.of(), InputEvent.OPEN, null, null,
+                Instant.now()));
+    }
+
     private InputEvent store(InputEvent event) {
         ledger = ledger.with(event);
         if (graph != null) {

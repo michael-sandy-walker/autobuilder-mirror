@@ -37,6 +37,11 @@ public record InputEvent(String id, String kind, String inputId, String subject,
      */
     public static final String IMPORT = "import";
     public static final String KEPT = "kept";
+    /**
+     * T4-EY: a decision taken back while its import was pending, kept as history: the decision as it was, and in
+     * {@code by} who made it and who reopened it. The conflict itself is open again.
+     */
+    public static final String REOPENED = "reopened";
     public static final String OPEN = "open";
     public static final String DECIDED = "decided";
     public static final String FOR_INPUT = "input";

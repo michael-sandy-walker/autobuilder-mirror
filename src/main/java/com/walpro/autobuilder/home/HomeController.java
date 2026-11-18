@@ -385,6 +385,24 @@ public class HomeController {
     /** T4-EY: {@code suggested} -- the page took the model's suggestion or option unedited; null when it does not say. */
     public record Decision(String decision, String resolution, Boolean suggested) {}
 
+    /**
+     * T4-EY step 2: before Keep, the import's decisions checked against each other and the project's: one screening
+     * call, then one per named pair. The cap is a safety bound, longer than a read's.
+     */
+    @PostMapping(value = "/home/run/inputs/{id}/contradictions", produces = "application/json")
+    public ResponseEntity<String> contradictions(@PathVariable String id) {
+        if (!id.matches("[A-Za-z0-9._-]+")) return ResponseEntity.badRequest().body("{\"ok\":false,\"message\":\"no such input\"}");
+        return relayed(run.postJson("/autobuilder/inputs/" + id + "/contradictions", "{}", Duration.ofMinutes(5)));
+    }
+
+    /** T4-EY step 2, Edit: a decision opened again, to be decided anew before Keep. */
+    @PostMapping(value = "/home/run/conflicts/{id}/reopen", produces = "application/json")
+    public ResponseEntity<String> reopen(@PathVariable String id) {
+        if (!id.matches("[A-Za-z0-9._-]+")) return ResponseEntity.badRequest().body("{\"ok\":false,\"message\":\"no such conflict\"}");
+        return relayed(run.postJson("/autobuilder/inputs/conflicts/" + id + "/reopen?by=operator%20(home%20screen)", "{}",
+                Duration.ofMinutes(1)));
+    }
+
     /** Where the input under way stands: its step out of all, and how far through the slow ones. 204 when none is. */
     @GetMapping(value = "/home/run/input-progress", produces = "application/json")
     public ResponseEntity<String> inputProgress() {

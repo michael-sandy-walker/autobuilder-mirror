@@ -290,6 +290,15 @@
     <button data-close class="primary">Close</button>
   </div>
 </dialog>
+<dialog id="dlg-contra">
+  <h3>Decisions that may contradict each other</h3>
+  <p class="note" id="contra-note"></p>
+  <div id="contra"></div>
+  <div class="foot">
+    <button data-close>Back</button>
+    <button id="contra-skip" class="primary">Skip -- keep it as decided</button>
+  </div>
+</dialog>
 <div id="toast" hidden></div>
 
 <script>
@@ -745,9 +754,58 @@ function countsText(newFiles, both, rules, claims) {
     + (split.length ? ' (' + split.join(', ') + ')' : '') + '.';
 }
 async function keepImport(id) {
-  const r = await post('/home/run/imports/' + encodeURIComponent(id) + '/keep');
-  if (r.status !== 200) toast(false, 'Not kept: ' + message(r)); else toast(true, 'Kept.');
-  refresh(); loadProjects();
+  await checkThenKeep([id], async () => {
+    const r = await post('/home/run/imports/' + encodeURIComponent(id) + '/keep');
+    if (r.status !== 200) toast(false, 'Not kept: ' + message(r)); else toast(true, 'Kept.');
+    refresh(); loadProjects();
+  });
+}
+
+// T4-EY step 2: before Keep, the import's decisions are checked against each other and against the project's. Nothing
+// flagged: it is kept at once. Otherwise a warning -- Skip keeps it as decided, Edit opens one decision again.
+async function checkThenKeep(ids, keep) {
+  toast(true, 'Checking the decisions against each other...');
+  const found = [];
+  let asked = 0, unchecked = 0, failed = false;
+  for (const id of ids) {
+    const r = await post('/home/run/inputs/' + encodeURIComponent(id) + '/contradictions');
+    if (r.status !== 200) { failed = true; continue; }
+    asked += r.body.asked || 0;
+    unchecked += (r.body.unchecked || []).length;
+    (r.body.flagged || []).forEach(p => found.push(p));
+  }
+  if (!failed && !found.length && !unchecked) { await keep(); return; }
+  $('contra-note').textContent = (failed ? 'The check could not be run. '
+      : asked + ' pair(s) of decisions were checked; ' + found.length + ' may not hold together. ')
+    + (unchecked ? unchecked + ' pair(s) could not be checked. ' : '')
+    + 'Skip keeps the import as decided; Edit opens a decision again, to be decided anew before Keep.';
+  $('contra').innerHTML = found.map((p, i) => '<div class="pending"><b>'
+      + (p.verdict === 'CONTRADICTS' ? 'Cannot both hold' : 'Hold together only in a particular way') + '</b>'
+      + '<div class="side">' + esc(p.reason) + '</div>'
+      + [p.first, p.second].map((d, k) => '<div class="row" style="align-items:baseline"><span class="side"><b>'
+        + esc(d.subject || 'A requirement') + ':</b> ' + esc(decidedText(d)) + ' <span class="note">(' + esc(whoseWords(d)) + ')</span></span>'
+        + (d.kind === 'conflict' && ids.includes(d.inputId)
+          ? '<button data-reopen="' + esc(d.id) + '">Edit</button>' : '<span class="note">already part of the project</span>')
+        + '</div>').join('')
+      + '</div>').join('');
+  document.querySelectorAll('[data-reopen]').forEach(b => b.onclick = async () => {
+    const r = await post('/home/run/conflicts/' + encodeURIComponent(b.dataset.reopen) + '/reopen');
+    if (r.status !== 200) { toast(false, 'Not opened again: ' + message(r)); return; }
+    $('dlg-contra').close();
+    toast(true, 'Opened again: decide it below, then keep.');
+    refresh();
+  });
+  $('contra-skip').onclick = async () => { $('dlg-contra').close(); await keep(); };
+  $('dlg-contra').showModal();
+}
+function decidedText(d) {
+  if (d.heldLine) return d.decision === 'own' ? d.resolution : d.decision === 'input' ? 'kept as a requirement: ' + d.heldLine
+    : 'left out: ' + d.heldLine;
+  return d.decision === 'own' ? d.resolution : d.decision === 'receiving' ? d.receiving : d.other;
+}
+function whoseWords(d) {
+  if (d.kind === 'correction') return 'settled by the intent';
+  return d.suggested === true ? "the model's suggestion, taken unedited" : d.suggested === false ? 'yours' : 'not recorded';
 }
 async function cancelImport(id, label) {
   if (!confirm('Cancel the import of "' + label + '"?\n\nIts files leave the project, its goals are dropped, '
@@ -1255,12 +1313,12 @@ function wireJobBox() {
   if (job.phase === 'CHOOSING' && job.capabilities) { wireCapabilities(); return; }
   if (job.phase !== 'DECIDING') return;
   const rel = $('release');
-  if (rel) rel.onclick = async () => {
+  if (rel) rel.onclick = () => checkThenKeep(pending.map(i => i.inputId), async () => {
     const r = await post('/home/integrate/release');
     if (r.status !== 200) toast(false, 'Not yet: ' + message(r));
     else toast(true, job.held ? 'Kept; Autobuilder works on the combined project.' : 'Kept.');
     refresh(); loadProjects();
-  };
+  });
   const cancel = $('cancel-job');
   if (cancel) cancel.onclick = async () => {
     if (!confirm('Cancel the import into "' + job.name + '"?\n\nEverything it brought in leaves the project again: files, goals, '

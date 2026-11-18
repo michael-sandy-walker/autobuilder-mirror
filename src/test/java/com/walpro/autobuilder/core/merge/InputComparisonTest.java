@@ -189,4 +189,31 @@ class InputComparisonTest {
         assertThat(options.get(1).why()).isEqualTo("imports need the longer limit.");
         verify(llm, times(2)).ask(any(), any());
     }
+
+    /** T4-EY: a pair's verdict and reason are read; an answer without a verdict is UNKNOWN, never TOGETHER. */
+    @Test
+    void togetherReadsItsThreeVerdicts_andAnUnreadableAnswerIsUnknown() {
+        var c = answering("VERDICT: CONTRADICTS\nREASON: pausing needs the menu bar that the other decision removes");
+        assertThat(c.together("s", "a", "b").verdict()).isEqualTo(InputComparison.Together.CONTRADICTS);
+        assertThat(c.together("s", "a", "b").reason()).isEqualTo("pausing needs the menu bar that the other decision removes");
+        assertThat(answering("VERDICT: TENSION\nREASON: a popup menu").together("s", "a", "b").verdict())
+                .isEqualTo(InputComparison.Together.TENSION);
+        assertThat(answering("VERDICT: TOGETHER\nREASON: unrelated").together("s", "a", "b").verdict())
+                .isEqualTo(InputComparison.Together.TOGETHER);
+        assertThat(answering("I think they are fine.").together("s", "a", "b").verdict())
+                .isEqualTo(InputComparison.Together.UNKNOWN);
+        assertThat(answering("").together("s", "a", "b").verdict()).isEqualTo(InputComparison.Together.UNKNOWN);
+    }
+
+    /** T4-EY: the screening names pairs as i-j; NONE is nothing to ask, an unreadable answer is null (could not narrow). */
+    @Test
+    void screeningReadsPairsInEitherOrder_NoneIsEmpty_andAnUnreadableAnswerIsNull() {
+        List<String> three = List.of("a", "b", "c");
+        assertThat(answering("PAIRS: 3-1, 2-3, 1-3, 4-1, 2-2").screen("s", three))
+                .extracting(p -> p[0] + "-" + p[1]).containsExactly("1-3", "2-3");
+        assertThat(answering("PAIRS: NONE").screen("s", three)).isEmpty();
+        assertThat(answering("").screen("s", three)).isNull();
+        assertThat(answering("They all fit.").screen("s", three)).isNull();
+        assertThat(answering("PAIRS: 1-2").screen("s", List.of("only one"))).isEmpty();
+    }
 }

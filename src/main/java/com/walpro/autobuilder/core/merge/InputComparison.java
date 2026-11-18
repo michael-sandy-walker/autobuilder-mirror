@@ -41,6 +41,8 @@ public class InputComparison {
     private static final String GOAL_SYSTEM = "You compare the goals of two software projects that are being merged into one."
             + " Answer only in the format asked for.";
     private static final String USE_SYSTEM = "You read what a person asks of a software project. Answer only in the format asked for.";
+    private static final String TOGETHER_SYSTEM = "You check whether two decisions, made while one software project was"
+            + " brought into another, can both hold in the merged project. Answer only in the format asked for.";
 
     /**
      * For a question whose answer is a complete list. At the run's "none" one named nothing for an intent saying "own
@@ -188,6 +190,72 @@ public class InputComparison {
                 + " needs work. Answer CONTRADICTS only when it cannot be true of the merged project, because it"
                 + " conflicts with what the receiving project is.\n\nVERDICT: APPLIES or CONTRADICTS\nREASON: one sentence");
         return answer.contains("VERDICT: CONTRADICTS");
+    }
+
+    /**
+     * T4-EY: whether two decisions can both hold. {@code CONTRADICTS}: following one makes the other impossible.
+     * {@code TENSION}: both can hold, but only in a particular way the words do not say (the reason names it --
+     * "remove the menu bar" and "pause via menu items" hold together with a popup menu; the operator says which).
+     * {@code TOGETHER}: no conflict. {@code UNKNOWN}: the question could not be asked or its answer not read -- never
+     * read as no contradiction.
+     */
+    public enum Together { CONTRADICTS, TENSION, TOGETHER, UNKNOWN }
+
+    /** A pair's verdict and the model's one-sentence reason (empty when {@link Together#UNKNOWN}). */
+    public record PairVerdict(Together verdict, String reason) {
+    }
+
+    private static final Pattern VERDICT = Pattern.compile("(?m)^\\s*VERDICT:\\s*(CONTRADICTS|TENSION|TOGETHER)\\b");
+    private static final Pattern REASON = Pattern.compile("(?m)^\\s*REASON:\\s*(.+?)\\s*$");
+
+    /**
+     * T4-EY: two decisions, each described with what lies under it (what each project had, how it was decided, what
+     * now holds), asked whether both can hold in the merged project.
+     */
+    public PairVerdict together(String specification, String first, String second) {
+        String answer = ask(TOGETHER_SYSTEM, "THE MERGED PROJECT IS FOR:\n" + specification
+                + "\n\nDECISION 1:\n" + first + "\n\nDECISION 2:\n" + second
+                + "\n\nCan the merged project satisfy both decisions at the same time?"
+                + " CONTRADICTS when following one makes the other impossible, or one needs what the other removes."
+                + " TENSION when both can hold, but only in a particular way their words do not say -- name that way."
+                + " TOGETHER when they do not affect each other, or plainly fit together."
+                + "\n\nVERDICT: CONTRADICTS, TENSION or TOGETHER\nREASON: one sentence");
+        Matcher v = VERDICT.matcher(answer);
+        if (!v.find()) return new PairVerdict(Together.UNKNOWN, "");
+        Matcher r = REASON.matcher(answer);
+        return new PairVerdict(Together.valueOf(v.group(1)), r.find() ? r.group(1) : "");
+    }
+
+    /**
+     * T4-EY: one screening question over many decisions at once -- the pairs worth asking {@link #together} about. One
+     * call for any number of decisions, instead of one a pair (seven decisions are 21 pairs; a click cannot wait for
+     * 21 calls). Each named pair is then asked in full. {@code decisions} are numbered from 1; a pair is
+     * {@code int[]{i, j}} with 1-based numbers, i < j. Empty when no pair is named; null when the call failed or its
+     * answer could not be read, so the caller can tell "nothing to ask" from "could not narrow".
+     */
+    public List<int[]> screen(String specification, List<String> decisions) {
+        if (decisions.size() < 2) return List.of();
+        StringBuilder numbered = new StringBuilder();
+        for (int i = 0; i < decisions.size(); i++) numbered.append(i + 1).append(". ").append(decisions.get(i)).append("\n\n");
+        String answer = ask(TOGETHER_SYSTEM, LIST_EFFORT, "THE MERGED PROJECT IS FOR:\n" + specification
+                + "\n\nTHE DECISIONS:\n" + numbered
+                + "Which pairs of these decisions might not hold together in the merged project -- one makes the other"
+                + " impossible, needs what the other removes, or both can hold only in a particular way their words do"
+                + " not say? Name every such pair; a pair you are unsure of is named too. Pairs about unrelated things are"
+                + " not named.\n\nPAIRS: <pairs as i-j separated by commas, or NONE>");
+        if (answer.isBlank()) return null;
+        int at = answer.lastIndexOf("PAIRS:");
+        if (at < 0) return null;
+        List<int[]> out = new ArrayList<>();
+        Matcher m = Pattern.compile("(\\d+)\\s*-\\s*(\\d+)").matcher(answer.substring(at));
+        while (m.find()) {
+            int a = Integer.parseInt(m.group(1)), b = Integer.parseInt(m.group(2));
+            int i = Math.min(a, b), j = Math.max(a, b);
+            if (i >= 1 && j <= decisions.size() && i != j && out.stream().noneMatch(p -> p[0] == i && p[1] == j)) {
+                out.add(new int[]{i, j});
+            }
+        }
+        return out;
     }
 
     /** The requirements, of {@code lines}, that state the receiving rule of {@code d}. */

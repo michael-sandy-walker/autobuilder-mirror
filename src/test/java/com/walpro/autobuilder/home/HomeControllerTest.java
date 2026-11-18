@@ -240,6 +240,30 @@ class HomeControllerTest {
         assertThat(sent.get(1)).doesNotContain("suggested");
     }
 
+    /** T4-EY step 2: the pair check and Edit are relayed to the run; a malformed id never leaves the home screen. */
+    @Test
+    void thePairCheckAndAReopenAreRelayed() throws Exception {
+        ProjectLauncher launcher = idle();
+        java.util.List<String> sent = new java.util.ArrayList<>();
+        RunClient run = new RunClient(launcher) {
+            @Override
+            Reply postJson(String path, String json, java.time.Duration timeout) {
+                sent.add(path + " " + timeout.toMinutes());
+                return new Reply(200, "{}");
+            }
+        };
+        HomeController c = new HomeController(launcher, new HomeApplication.ProjectsDirectory(projects), run);
+
+        c.contradictions("input-1");
+        c.reopen("event-1");
+
+        assertThat(sent).containsExactly("/autobuilder/inputs/input-1/contradictions 5",
+                "/autobuilder/inputs/conflicts/event-1/reopen?by=operator%20(home%20screen) 1");
+        assertThat(c.contradictions("../x").getStatusCode().value()).isEqualTo(400);
+        assertThat(c.reopen("a b").getStatusCode().value()).isEqualTo(400);
+        assertThat(sent).hasSize(2);
+    }
+
     /** Field: the run writes an empty list as "[ ]", and Continue refused with nothing waiting. */
     @Test
     void aHeldProjectContinuesWhenNothingWaits_howeverTheRunWritesAnEmptyList() throws Exception {

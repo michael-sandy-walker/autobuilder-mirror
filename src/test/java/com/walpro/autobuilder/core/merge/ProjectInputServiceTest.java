@@ -396,6 +396,58 @@ class ProjectInputServiceTest {
         assertThat(service.decide(id, "receiving", "operator").suggested()).isNull();
     }
 
+    /**
+     * T4-EY step 2, Edit: a decision of a pending import opened again. What it added is taken back -- its line among the
+     * input's requirements and in the import's work -- the conflict is open as raised, the ledger keeps the decision as
+     * history, and it can be decided anew.
+     */
+    @Test
+    void aReopenedDecisionTakesBackWhatItAdded_staysInTheLedger_andCanBeDecidedAnew() throws IOException {
+        seedLine();
+        differs(TURNS, false);
+        ProjectInputService.Report r = bring();
+        String id = r.conflicts().get(0).id();
+        var input = goals.purpose().ledger().entries().stream().filter(e -> e.id().equals(r.inputId())).findFirst().orElseThrow();
+        Path obligations = base.resolve(goals.purpose().obligationsPath(input));
+        Path work = base.resolve("meta/inputs/" + r.inputId() + "/work.txt");
+
+        service.decide(id, "own", "operator (home screen)", "at most 5 turns", true);
+        assertThat(Files.readString(obligations)).contains("the turn limit: at most 5 turns");
+        assertThat(Files.readString(work)).contains("the turn limit: at most 5 turns");
+
+        var reopened = service.reopen(id, "operator (home screen)");
+
+        assertThat(reopened.open()).isTrue();
+        assertThat(goals.purpose().openConflicts()).extracting(e -> e.id()).containsExactly(id);
+        assertThat(Files.readString(obligations)).doesNotContain("at most 5 turns");
+        assertThat(Files.readString(work)).doesNotContain("at most 5 turns");
+        assertThat(goals.purpose().ledger().events()).filteredOn(e -> "reopened".equals(e.kind())).singleElement()
+                .satisfies(h -> {
+                    assertThat(h.resolution()).isEqualTo("at most 5 turns");
+                    assertThat(h.suggested()).isTrue();
+                    assertThat(h.by()).contains("reopened by operator (home screen)");
+                });
+        assertThatThrownBy(() -> service.keep(r.inputId(), "operator")).as("open again, so not keepable")
+                .isInstanceOf(IllegalArgumentException.class);
+
+        service.decide(id, "own", "operator (home screen)", "at most 7 turns", false);
+        assertThat(Files.readString(work)).contains("the turn limit: at most 7 turns").doesNotContain("at most 5 turns");
+    }
+
+    @Test
+    void onlyADecidedLineOfAPendingImportIsReopened() throws IOException {
+        seedLine();
+        differs(TURNS, false);
+        ProjectInputService.Report r = bring();
+        String id = r.conflicts().get(0).id();
+
+        assertThatThrownBy(() -> service.reopen(id, "operator")).as("still open").isInstanceOf(IllegalArgumentException.class);
+        service.decide(id, "input", "operator");
+        service.keep(r.inputId(), "operator");
+        assertThatThrownBy(() -> service.reopen(id, "operator")).as("kept: changed by a new decision, later")
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("pending");
+    }
+
     @Test
     void aDecisionForTheReceivingProjectChangesNothing_andAConflictIsDecidedOnce() throws IOException {
         seedLine();
