@@ -8,4 +8,4 @@
 ## v2 -- 2026-11-18
 
 - reason: the ticket text quotes the compiler's lines as the build prints them ([ERROR] prefix, padded fields); v1 quoted them single-spaced without the prefix while the withheld spec feeds real lines -- the spec asserted a format the text did not state (T1-GT, run 2026-11-18_12-04-50). Nothing else changed.
-- bootstrap digest: `f507db5d7b808519`
+- bootstrap digest: `37237dae7b1e01d8` (corrected the same day before any run: `f507db5d7b808519` was taken with run 1's generated `seed.obligations.txt` still in bootstrap/; moved to `~/.autobuilder/field-forward3/prev-bootstrap-extra/`)
