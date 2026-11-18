@@ -820,20 +820,39 @@ public class EvolutionProtocolContract {
         if (status == null || status.isEmpty()) return null;
 
         List<String> criteria = input.currentSubGoalCriteria();
+        // T1-GU: the criteria the specification did not state (T1-GS's AUTHORED stamp) are guidance here too.
+        // Before, an advisory criterion was the one the mutation was told to focus on (2026-11-17/18: "Create
+        // AlternatingPair.java" for a record the ticket wanted nested, in every forward run).
+        Set<Integer> advisory = input.currentSubGoalAuthoredCriteria() == null
+                ? Set.of() : input.currentSubGoalAuthoredCriteria();
 
         StringBuilder sb = new StringBuilder("--- CRITERIA PROGRESS ---\n");
         int count = criteria != null ? criteria.size() : status.size();
+        boolean anyAdvisory = false;
         for (int i = 0; i < count; i++) {
             Boolean passed = status.get(i);
             String text = (criteria != null && i < criteria.size()) ? criteria.get(i) : "(unknown criterion)";
+            boolean isAdvisory = criteria != null && advisory.contains(i + 1);
+            anyAdvisory |= isAdvisory;
+            String mark = isAdvisory ? ADVISORY_MARK : "";
             if (Boolean.TRUE.equals(passed)) {
-                sb.append("[").append(i + 1).append("] \u2713 ").append(text).append("  \u2190 already satisfied\n");
+                sb.append("[").append(i + 1).append("] \u2713 ").append(mark).append(text).append("  \u2190 already satisfied\n");
+            } else if (isAdvisory) {
+                sb.append("[").append(i + 1).append("] \u2717 ").append(mark).append(text).append("  \u2190 unmet; advisory\n");
             } else {
                 sb.append("[").append(i + 1).append("] \u2717 ").append(text).append("  \u2190 still unmet; focus your mutation here\n");
             }
         }
+        if (anyAdvisory) {
+            sb.append("A criterion marked (advisory) was added during planning; the specification does not state it. ")
+              .append("Do not change correct work to meet it; where it disagrees with the specification or the root ")
+              .append("goal, they decide.\n");
+        }
         return sb.toString();
     }
+
+    /** T1-GU: the evaluator's mark (T1-GS), so both prompts name an advisory criterion the same way. */
+    static final String ADVISORY_MARK = com.walpro.autobuilder.protocol.evaluation.EvaluationProtocolContract.ADVISORY_MARK;
 
     /**
      * T2-BS: builds a REQUIRED FILES block when the current subgoal's acceptance criteria

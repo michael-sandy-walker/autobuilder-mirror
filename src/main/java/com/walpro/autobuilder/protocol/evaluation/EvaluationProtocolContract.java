@@ -505,7 +505,7 @@ public class EvaluationProtocolContract {
      * reason to reject. On 2026-11-17 an unmarked "Create AlternatingPair.java" -- grounded as not stated -- made
      * the evaluator reject a correct nested record and the loop move it out of the class the ticket named.
      */
-    static final String ADVISORY_MARK = "(advisory) ";
+    public static final String ADVISORY_MARK = "(advisory) ";
 
     static String criteriaBlock(List<String> criteria, java.util.Set<Integer> advisory) {
         if (criteria == null || criteria.isEmpty()) {

@@ -345,6 +345,36 @@ class PlannerAgentTest {
         verify(plannerAdapter).evolveGraph(any(CycleContextData.class), eq(outcome));
     }
 
+    /**
+     * T1-GU: the AUTHORED stamp travels with the criteria it indexes. Refreshed alone, a newly current subgoal's
+     * criteria were read with the previous subgoal's indices (2026-11-17: 5 of 5 stamped, [1] shown advisory).
+     */
+    @Test
+    void execute_refreshesTheAuthoredIndicesWithTheCriteriaOfTheNowCurrentSubgoal() {
+        CycleContextData ctx = CycleContextData.builder()
+                .currentSubGoalId("previous")
+                .currentSubGoalCriteria(List.of("previous A", "previous B"))
+                .currentSubGoalAuthoredCriteria(java.util.Set.of(1))
+                .build();
+
+        PlannerOutcome outcome = mock(PlannerOutcome.class);
+        when(outcome.updated()).thenReturn(false);
+        when(plannerAdapter.plan(any(CycleContextData.class))).thenReturn(outcome);
+
+        GoalEntity now = new GoalEntity("now", "the build-fix subgoal", null, null, "root-1");
+        now.getMetadata().put("acceptanceCriteria", List.of("Create X.java", "Create Y.java", "it compiles"));
+        now.getMetadata().put("criteriaBinding", Map.of("1", "AUTHORED", "2", "AUTHORED", "3", "AUTHORED"));
+        when(goalPlannerService.getRootGoal()).thenReturn(null);
+        when(goalPlannerService.getCurrentSubGoal()).thenReturn(now);
+        when(goalPlannerService.getRemainingGoals()).thenReturn(List.of());
+        when(goalPlannerService.getCompletedGoals()).thenReturn(List.of());
+
+        CycleContextData updated = agent.execute(ctx);
+
+        assertThat(updated.currentSubGoalCriteria()).containsExactly("Create X.java", "Create Y.java", "it compiles");
+        assertThat(updated.currentSubGoalAuthoredCriteria()).containsExactly(1, 2, 3);
+    }
+
     @Test
     void execute_whenThrottledButStrongReplan_injectsGoalsConsumesReplanKeepsThrottle() {
         CycleContextData ctx = CycleContextData.builder()

@@ -419,4 +419,35 @@ class SymbolGroundingServiceTest {
         assertThat(grounded.undefined()).as("NibHolder is used as code; QuillReader appears nowhere")
                 .containsExactlyInAnyOrder("NibHolder", "QuillReader");
     }
+
+    /**
+     * T1-GU: a name the description writes as a member of a type (Outer.Name) gets no "Create Name.java" -- it lives
+     * in Outer's file. Recorded (stuck-alternation run 2, 2026-11-17): "... the nested record StuckLedger.AlternatingPair
+     * (not a top-level AlternatingPair) ..." minted "Create AlternatingPair.java". The qualifier itself, and a name
+     * qualified by a PACKAGE (a top-level type), are minted as before.
+     */
+    @Test
+    void aNameWrittenAsAMemberOfATypeGetsNoFileOfItsOwn() {
+        String desc = "Keep the nested record StuckLedger.AlternatingPair (not a top-level AlternatingPair) and add "
+                + "a com.acme.report.PairReport beside it";
+
+        var grounded = SymbolGroundingService.groundProposedGoals(service, java.util.List.of(desc),
+                java.util.Map.of(desc, java.util.List.of("pairs are named once")));
+
+        assertThat(grounded.undefined()).as("still undefined, still reported")
+                .contains("StuckLedger", "AlternatingPair", "PairReport");
+        assertThat(grounded.criteria().get(desc))
+                .contains("Create StuckLedger.java", "Create PairReport.java", "pairs are named once")
+                .doesNotContain("Create AlternatingPair.java");
+    }
+
+    @Test
+    void writtenAsMember_readsTheQualifierAsATypeOrAPackage() {
+        assertThat(SymbolGroundingService.writtenAsMember("uses StuckLedger.AlternatingPair here", "AlternatingPair")).isTrue();
+        assertThat(SymbolGroundingService.writtenAsMember("uses com.acme.StuckLedger.AlternatingPair", "AlternatingPair")).isTrue();
+        assertThat(SymbolGroundingService.writtenAsMember("uses com.acme.stuck.AlternatingPair", "AlternatingPair")).isFalse();
+        assertThat(SymbolGroundingService.writtenAsMember("a top-level AlternatingPair", "AlternatingPair")).isFalse();
+        assertThat(SymbolGroundingService.writtenAsMember("StuckLedger.AlternatingPairs", "AlternatingPair")).isFalse();
+        assertThat(SymbolGroundingService.writtenAsMember("see AlternatingPair.java", "AlternatingPair")).isFalse();
+    }
 }

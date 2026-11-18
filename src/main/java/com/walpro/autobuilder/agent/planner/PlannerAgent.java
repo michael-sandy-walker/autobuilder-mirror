@@ -941,6 +941,11 @@ public class PlannerAgent implements ExecutionAgent, CheckpointableState {
                 .withRemainingGoals(goalPlannerService.getRemainingGoals())
                 .withCompletedGoals(goalPlannerService.getCompletedGoals())
                 .withCurrentSubGoalCriteria(subgoalCriteria.isEmpty() ? null : subgoalCriteria)
+                // T1-GU: the stamp travels with the criteria it indexes. Refreshed alone, the criteria of a
+                // newly current subgoal were read with the previous subgoal's AUTHORED indices (2026-11-17: a
+                // build-fix subgoal stamped 5 of 5 AUTHORED reached the evaluator with only [1] advisory).
+                .withCurrentSubGoalAuthoredCriteria(subgoalCriteria.isEmpty() ? null
+                        : com.walpro.autobuilder.goal.CriteriaBinding.authoredIndices(current, subgoalCriteria.size()))
                 .withCurrentSubGoalParentId(parentId)
                 .withPlanRationale(planRationale)
                 .withRelatedAbandonedGoals(relatedAbandoned);

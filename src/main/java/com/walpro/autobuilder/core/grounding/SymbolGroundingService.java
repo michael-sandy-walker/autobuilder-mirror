@@ -511,6 +511,11 @@ public class SymbolGroundingService {
             List<String> newCriteria = new ArrayList<>();
             // Framed as "Create X.java", not "Add import for X".
             for (String sym : perDescUndefined) {
+                // T1-GU: a name the description writes as a member of a type (Outer.X) lives inside that type's
+                // file -- no file of its own is wanted. In both stuck-alternation runs the minted
+                // "Create AlternatingPair.java" (for StuckLedger.AlternatingPair) steered the work toward moving a
+                // correct nested record out of the class the ticket named.
+                if (writtenAsMember(desc, sym)) continue;
                 newCriteria.add("Create " + sym + ".java");
             }
             if (origCriteria != null) {
@@ -525,5 +530,15 @@ public class SymbolGroundingService {
             if (!perDescUndefined.isEmpty()) perDescription.put(desc, perDescUndefined);
         }
         return new GroundedGoals(goals, rewritten, undefined, perDescription);
+    }
+
+    /**
+     * T1-GU: true when {@code text} writes {@code name} as a member of a type -- {@code Outer.Name}, the
+     * qualifier itself a type name (an upper-case initial). A package-qualified top-level name
+     * ({@code com.acme.Name}) is not a member: its qualifier is a package segment.
+     */
+    static boolean writtenAsMember(String text, String name) {
+        if (text == null || name == null || name.isEmpty()) return false;
+        return Pattern.compile("\\b[A-Z]\\w*\\." + Pattern.quote(name) + "\\b").matcher(text).find();
     }
 }

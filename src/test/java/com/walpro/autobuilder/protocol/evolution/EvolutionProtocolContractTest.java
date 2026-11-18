@@ -342,6 +342,38 @@ class EvolutionProtocolContractTest {
         assertThat(EvolutionProtocolContract.criteriaProgressBlock(ctx)).isNull();
     }
 
+    /**
+     * T1-GU: an AUTHORED criterion (T1-GS) is guidance in the evolution prompt too -- marked, and never the one the
+     * mutation is told to focus on (2026-11-17/18: "Create AlternatingPair.java" for a record the ticket wanted nested).
+     */
+    @Test
+    void criteriaProgressBlock_anAdvisoryCriterionIsMarkedAndNotTheFocus() {
+        CycleContextData ctx = baseContext()
+                .withCumulativeCriteriaStatus(Map.of(0, false, 1, false, 2, true))
+                .withCurrentSubGoalCriteria(List.of("Create AlternatingPair.java", "pairs are named once", "it compiles"))
+                .withCurrentSubGoalAuthoredCriteria(java.util.Set.of(1, 3));
+
+        String block = EvolutionProtocolContract.criteriaProgressBlock(ctx);
+
+        assertThat(block).contains("[1] ✗ (advisory) Create AlternatingPair.java  ← unmet; advisory");
+        assertThat(block).doesNotContain("Create AlternatingPair.java  ← still unmet; focus your mutation here");
+        assertThat(block).contains("[2] ✗ pairs are named once  ← still unmet; focus your mutation here");
+        assertThat(block).contains("[3] ✓ (advisory) it compiles  ← already satisfied");
+        assertThat(block).contains("the specification does not state it");
+    }
+
+    @Test
+    void criteriaProgressBlock_withoutAdvisoryCriteria_isAsBefore() {
+        CycleContextData ctx = baseContext()
+                .withCumulativeCriteriaStatus(Map.of(0, false))
+                .withCurrentSubGoalCriteria(List.of("criterion A"));
+
+        String block = EvolutionProtocolContract.criteriaProgressBlock(ctx);
+
+        assertThat(block).contains("[1] ✗ criterion A  ← still unmet; focus your mutation here");
+        assertThat(block).doesNotContain("advisory");
+    }
+
     @Test
     void criteriaProgressBlock_allPassed_showsCheckmarks() {
         CycleContextData ctx = baseContext()
