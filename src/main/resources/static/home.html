@@ -158,6 +158,7 @@
     padding: 10px 14px; border-radius: 8px; font-size: 12.5px; border: 1px solid var(--rule); background: var(--panel-2); }
   #toast.ok { border-color: var(--good-rule); color: var(--good); }
   #toast.no { border-color: var(--bad-rule); color: var(--bad); }
+  .missing { outline: 2px solid var(--bad-rule); outline-offset: 2px; }
   @media (max-width: 640px) { .choices { grid-template-columns: 1fr; } .project { grid-template-columns: 1fr; }
     .project .acts { grid-row: auto; grid-column: 1; } }
 </style>
@@ -1432,6 +1433,8 @@ function chooseKind(k) {
   if (k === 'several') renderPicks();
 }
 document.querySelectorAll('.choice').forEach(b => b.onclick = () => chooseKind(b.dataset.kind));
+['new-name', 'sev-goal'].forEach(id => $(id).addEventListener('input', () => $(id).classList.remove('missing')));
+$('sev-picks').addEventListener('change', () => { if (Object.keys(picked).length >= 2) $('sev-picks').classList.remove('missing'); });
 $('new-open').onclick = () => { loadProjects().then(() => chooseKind(kind)); $('dlg-new').showModal(); };
 document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => b.closest('dialog').close());
 document.querySelectorAll('input[name=code-src]').forEach(r => r.onchange = () => {
@@ -1479,6 +1482,18 @@ $('new-go').onclick = async () => {
     $('dlg-new').close(); loadProjects(); await startRun(name, 'ADOPT_PROJECT');
     toast(true, 'Copied ' + r.body.files + ' files' + (r.body.leftOut ? ', left out ' + r.body.leftOut : '') + '. Reading the code...');
   } else {
+    // Point to what is missing before asking the run: every piece at once, each outlined, the first one focused.
+    document.querySelectorAll('#dlg-new .missing').forEach(e => e.classList.remove('missing'));
+    const missing = [];
+    if (!name) missing.push(['a name for the new project', $('new-name')]);
+    if (!$('sev-goal').value.trim()) missing.push(['a goal: what the combined project is for', $('sev-goal')]);
+    if (Object.keys(picked).length < 2) missing.push(['two or more projects ticked below', $('sev-picks')]);
+    if (missing.length) {
+      missing.forEach(([, el]) => el.classList.add('missing'));
+      missing[0][1].focus();
+      toast(false, 'Still missing: ' + missing.map(([what]) => what).join('; ') + '.');
+      return;
+    }
     const inputs = Object.entries(picked).map(([project, p]) => ({ project, intent: p.intent, runs: p.runs }));
     r = await post('/home/integrate', { name, goal: $('sev-goal').value, profiles: profiles(), inputs });
     if (r.status !== 202) { toast(false, 'Not started: ' + message(r)); return; }
