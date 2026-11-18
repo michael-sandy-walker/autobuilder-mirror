@@ -19,10 +19,14 @@ import java.util.List;
  * @param decision  {@code input}, {@code receiving}, {@code own}, or null while open
  * @param by        who settled it: {@code intent}, or who decided
  * @param resolution what the operator decided instead, in their words, for an {@code own} decision; null otherwise
+ * @param suggested T4-EY: whose words a decision is -- {@code true} the model's (a suggestion or option taken unedited),
+ *                  {@code false} the operator's own choice or wording; null when not recorded (every event before
+ *                  T4-EY, and events that are not decisions). Until then a decision taken through Suggest read as the
+ *                  operator's own ("operator (home screen)").
  */
 public record InputEvent(String id, String kind, String inputId, String subject, String receiving, String other,
                          String heldLine, String heldPath, List<String> replaces, String status, String decision,
-                         String by, Instant at, String resolution) {
+                         String by, Instant at, String resolution, Boolean suggested) {
 
     public static final String CORRECTION = "correction";
     public static final String CONFLICT = "conflict";
@@ -48,6 +52,14 @@ public record InputEvent(String id, String kind, String inputId, String subject,
                       String heldLine, String heldPath, List<String> replaces, String status, String decision,
                       String by, Instant at) {
         this(id, kind, inputId, subject, receiving, other, heldLine, heldPath, replaces, status, decision, by, at, null);
+    }
+
+    /** Every event before T4-EY: whose words a decision is, not recorded. */
+    public InputEvent(String id, String kind, String inputId, String subject, String receiving, String other,
+                      String heldLine, String heldPath, List<String> replaces, String status, String decision,
+                      String by, Instant at, String resolution) {
+        this(id, kind, inputId, subject, receiving, other, heldLine, heldPath, replaces, status, decision, by, at,
+                resolution, null);
     }
 
     public InputEvent {

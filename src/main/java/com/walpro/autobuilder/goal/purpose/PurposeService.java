@@ -308,8 +308,15 @@ public class PurposeService implements CheckpointableState {
     /** A conflict decided, with the operator's own resolution when they chose neither side as it is. */
     public synchronized InputEvent decide(InputEvent open, String decision, String by, List<String> replaces,
                                           String resolution) {
+        return decide(open, decision, by, replaces, resolution, null);
+    }
+
+    /** T4-EY: as above, with whose words the decision is ({@link InputEvent#suggested()}; null = not recorded). */
+    public synchronized InputEvent decide(InputEvent open, String decision, String by, List<String> replaces,
+                                          String resolution, Boolean suggested) {
         return store(new InputEvent(open.id(), open.kind(), open.inputId(), open.subject(), open.receiving(), open.other(),
-                open.heldLine(), open.heldPath(), replaces, InputEvent.DECIDED, decision, by, Instant.now(), resolution));
+                open.heldLine(), open.heldPath(), replaces, InputEvent.DECIDED, decision, by, Instant.now(), resolution,
+                suggested));
     }
 
     private InputEvent store(InputEvent event) {

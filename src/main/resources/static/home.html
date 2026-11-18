@@ -1277,11 +1277,12 @@ function wireConflicts() {
   document.querySelectorAll('[data-ask]').forEach(b => b.onclick = () => askOptions(b.dataset.ask));
   document.querySelectorAll('[data-use]').forEach(b => b.onclick = () => {
     const d = draftOf(b.dataset.use), o = d.options[Number(b.dataset.i)];
-    d.text = o.resolution; d.open = true; d.suggested = !!o.recommended; d.why = o.recommended ? o.why : null; rerender();
+    d.text = o.resolution; d.open = true; d.suggested = !!o.recommended; d.why = o.recommended ? o.why : null;
+    d.fromModel = true; rerender();
   });
   document.querySelectorAll('[data-text]').forEach(t => {
     t.value = draftOf(t.dataset.text).text;
-    t.oninput = () => { const d = draftOf(t.dataset.text); d.text = t.value; d.suggested = false; };
+    t.oninput = () => { const d = draftOf(t.dataset.text); d.text = t.value; d.suggested = false; d.fromModel = false; };
   });
   document.querySelectorAll('[data-sel]').forEach(c => c.onchange = () => {
     if (c.checked) selected.add(c.dataset.sel); else selected.delete(c.dataset.sel);
@@ -1316,10 +1317,11 @@ async function runBatch(what) {
       d.options = list;
       const rec = list.find(o => o.recommended);
       if (!rec) { none++; continue; }
-      d.open = true; d.text = rec.resolution; d.suggested = true; d.why = rec.why;
+      d.open = true; d.text = rec.resolution; d.suggested = true; d.why = rec.why; d.fromModel = true;
       done++;
     } else {
-      const body = { decision: what === 'shown' ? 'own' : what };
+      // T4-EY: whose words the decision is -- the model's (a suggestion or option, unedited) or the operator's.
+      const body = { decision: what === 'shown' ? 'own' : what, suggested: what === 'shown' && !!draftOf(id).fromModel };
       if (what === 'shown') body.resolution = draftOf(id).text.trim();
       const r = await post('/home/run/conflicts/' + encodeURIComponent(id), body);
       if (r.status >= 300) failed++; else { done++; delete drafts[id]; selected.delete(id); }
@@ -1336,7 +1338,8 @@ async function runBatch(what) {
 function rerender() { lastNowHtml = ''; renderNow(); }
 
 async function decide(id, way) {
-  const body = { decision: way };
+  // T4-EY: whose words the decision is -- the model's (a suggestion or option, unedited) or the operator's.
+  const body = { decision: way, suggested: way === 'own' && !!draftOf(id).fromModel };
   if (way === 'own') {
     body.resolution = draftOf(id).text.trim();
     if (!body.resolution) { toast(false, 'Say what should hold instead.'); return; }

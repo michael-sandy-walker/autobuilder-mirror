@@ -604,7 +604,8 @@ public class AutobuilderController {
      * T4-EC slice 5: how a held conflict is decided: for {@code input}, for {@code receiving}, or (T4-ED) {@code own}
      * with the operator's {@code resolution} -- and by whom.
      */
-    public record ConflictDecision(String decision, String by, String resolution) {
+    /** T4-EY: {@code suggested} -- the decision is the model's suggestion or option taken unedited; null = not said. */
+    public record ConflictDecision(String decision, String by, String resolution, Boolean suggested) {
     }
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -701,7 +702,7 @@ public class AutobuilderController {
         if (projectInputService == null) return ResponseEntity.status(503).body(Map.of("error", "inputs are not enabled in this context"));
         try {
             return ResponseEntity.ok(autobuilderService.decideConflict(projectInputService, id, d.decision(),
-                    d.by() == null ? "operator" : d.by(), d.resolution()));
+                    d.by() == null ? "operator" : d.by(), d.resolution(), d.suggested()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (java.io.IOException e) {

@@ -77,6 +77,7 @@ public class Neo4jInputGraphService implements InputGraphService {
         p.put("decision", e.decision());
         p.put("by", e.by());
         p.put("resolution", e.resolution());
+        p.put("suggested", e.suggested());
         p.put("at", e.at() == null ? null : e.at().toString());
         p.put("lineageId", lineageId != null ? lineageId : runIdentity.lineageId());
         neo4jClient.query("""
@@ -84,7 +85,7 @@ public class Neo4jInputGraphService implements InputGraphService {
                 ON CREATE SET v.lineageId = $lineageId
                 SET v.kind = $kind, v.inputId = $inputId, v.subject = $subject, v.receiving = $receiving, v.other = $other,
                     v.heldLine = $heldLine, v.heldPath = $heldPath, v.replaces = $replaces, v.status = $status,
-                    v.decision = $decision, v.by = $by, v.at = $at, v.resolution = $resolution
+                    v.decision = $decision, v.by = $by, v.at = $at, v.resolution = $resolution, v.suggested = $suggested
                 WITH v
                 MATCH (i:Input {id: $inputId})
                 MERGE (i)-[:RAISED]->(v)
@@ -103,7 +104,8 @@ public class Neo4jInputGraphService implements InputGraphService {
                 WHERE v.lineageId = $lineageId
                 RETURN v.id AS id, v.kind AS kind, v.inputId AS inputId, v.subject AS subject, v.receiving AS receiving,
                        v.other AS other, v.heldLine AS heldLine, v.heldPath AS heldPath, v.replaces AS replaces,
-                       v.status AS status, v.decision AS decision, v.by AS by, v.at AS at, v.resolution AS resolution
+                       v.status AS status, v.decision AS decision, v.by AS by, v.at AS at, v.resolution AS resolution,
+                       v.suggested AS suggested
                 ORDER BY v.at
                 """)
                 .bind(runIdentity.lineageId()).to("lineageId")
@@ -114,7 +116,8 @@ public class Neo4jInputGraphService implements InputGraphService {
                         (String) r.get("subject"), (String) r.get("receiving"), (String) r.get("other"),
                         (String) r.get("heldLine"), (String) r.get("heldPath"), (List<String>) r.get("replaces"),
                         (String) r.get("status"), (String) r.get("decision"), (String) r.get("by"),
-                        r.get("at") == null ? null : Instant.parse((String) r.get("at")), (String) r.get("resolution")))
+                        r.get("at") == null ? null : Instant.parse((String) r.get("at")), (String) r.get("resolution"),
+                        (Boolean) r.get("suggested")))
                 .toList();
     }
 

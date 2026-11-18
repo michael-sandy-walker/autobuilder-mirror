@@ -357,6 +357,15 @@ public class ProjectInputService {
      * out, and the resolution is the requirement in its place.
      */
     public synchronized InputEvent decide(String id, String decision, String by, String resolution) throws IOException {
+        return decide(id, decision, by, resolution, null);
+    }
+
+    /**
+     * T4-EY: as above, with whose words the decision is -- {@code true} the model's suggestion or option taken unedited,
+     * {@code false} the operator's own; null when the caller does not say.
+     */
+    public synchronized InputEvent decide(String id, String decision, String by, String resolution, Boolean suggested)
+            throws IOException {
         if (!InputEvent.FOR_INPUT.equals(decision) && !InputEvent.FOR_RECEIVING.equals(decision)
                 && !InputEvent.FOR_OWN.equals(decision)) {
             throw new IllegalArgumentException("a decision is input, receiving or own");
@@ -367,13 +376,13 @@ public class ProjectInputService {
         InputEvent open = goals.purpose().event(id);
         if (open == null || !open.open()) throw new IllegalArgumentException("no open conflict: " + id);
         boolean difference = open.heldLine() == null && open.heldPath() == null;
-        if (InputEvent.FOR_OWN.equals(decision)) return decideOwn(open, difference, by, resolution.strip());
+        if (InputEvent.FOR_OWN.equals(decision)) return decideOwn(open, difference, by, resolution.strip(), suggested);
         InputComparison.Difference d = new InputComparison.Difference(open.subject(), open.receiving(), open.other());
         // T1-GQ: a decision for the receiving project rejects the input's rule, so the input's lines for it leave too.
         List<String> replaces = !difference ? List.of()
                 : InputEvent.FOR_INPUT.equals(decision) ? comparison.stating(goals.statedRules(), d)
                 : comparison.contradicting(InputComparison.BROUGHT, broughtLines(open.inputId()), open.subject(), open.receiving());
-        InputEvent decided = goals.purpose().decide(open, decision, by, replaces);
+        InputEvent decided = goals.purpose().decide(open, decision, by, replaces, null, suggested);
         if (InputEvent.FOR_INPUT.equals(decision)) {
             if (open.heldPath() != null) {
                 Path to = files.getRootDir().resolve("output").resolve(open.subject());
@@ -390,7 +399,8 @@ public class ProjectInputService {
         return decided;
     }
 
-    private InputEvent decideOwn(InputEvent open, boolean difference, String by, String resolution) throws IOException {
+    private InputEvent decideOwn(InputEvent open, boolean difference, String by, String resolution, Boolean suggested)
+            throws IOException {
         List<String> replaces = new ArrayList<>();
         if (difference) {
             // T1-GR: both sides are asked which of their lines cannot hold beside the resolution. "Which lines state the
@@ -402,7 +412,7 @@ public class ProjectInputService {
             comparison.contradicting(InputComparison.BROUGHT, broughtLines(open.inputId()), open.subject(), resolution).stream()
                     .filter(l -> !replaces.contains(l)).forEach(replaces::add);
         }
-        InputEvent decided = goals.purpose().decide(open, InputEvent.FOR_OWN, by, replaces, resolution);
+        InputEvent decided = goals.purpose().decide(open, InputEvent.FOR_OWN, by, replaces, resolution, suggested);
         String line = difference ? open.subject() + ": " + resolution
                 : open.heldPath() != null ? "Merge " + open.subject() + " with the copy brought in (kept at " + open.heldPath()
                         + "): " + resolution

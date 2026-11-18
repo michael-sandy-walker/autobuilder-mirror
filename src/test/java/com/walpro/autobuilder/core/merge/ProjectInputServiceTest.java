@@ -361,6 +361,41 @@ class ProjectInputServiceTest {
         assertThat(goals.purpose().linesOut()).contains("A coil of 4 turns is refused.");
     }
 
+    /**
+     * T4-EY: a decision says whose words it is. An own resolution taken from the model unedited is the model's; one the
+     * operator wrote, or a side the operator chose, is theirs; a caller that does not say leaves it unrecorded.
+     */
+    @Test
+    void aDecisionRecordsWhetherItIsTheModelsSuggestionOrTheOperatorsOwn() throws IOException {
+        seedLine();
+        differs(TURNS, false);
+        String id = bring().conflicts().get(0).id();
+
+        var decided = service.decide(id, "own", "operator (home screen)", "at most 5 turns", true);
+
+        assertThat(decided.suggested()).isTrue();
+        assertThat(goals.purpose().event(id).suggested()).isTrue();
+        assertThat(goals.purpose().event(id).by()).isEqualTo("operator (home screen)");
+    }
+
+    @Test
+    void aSideChosenByTheOperatorIsTheirs() throws IOException {
+        seedLine();
+        differs(TURNS, false);
+        String id = bring().conflicts().get(0).id();
+
+        assertThat(service.decide(id, "receiving", "operator", null, false).suggested()).isFalse();
+    }
+
+    @Test
+    void aCallerThatDoesNotSayWhoseWordsLeavesItUnrecorded() throws IOException {
+        seedLine();
+        differs(TURNS, false);
+        String id = bring().conflicts().get(0).id();
+
+        assertThat(service.decide(id, "receiving", "operator").suggested()).isNull();
+    }
+
     @Test
     void aDecisionForTheReceivingProjectChangesNothing_andAConflictIsDecidedOnce() throws IOException {
         seedLine();

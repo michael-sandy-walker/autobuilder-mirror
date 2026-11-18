@@ -382,7 +382,8 @@ public class HomeController {
     }
 
     /** One conflict decided: {@code input} or {@code receiving} wins, or {@code own} with the operator's resolution. */
-    public record Decision(String decision, String resolution) {}
+    /** T4-EY: {@code suggested} -- the page took the model's suggestion or option unedited; null when it does not say. */
+    public record Decision(String decision, String resolution, Boolean suggested) {}
 
     /** Where the input under way stands: its step out of all, and how far through the slow ones. 204 when none is. */
     @GetMapping(value = "/home/run/input-progress", produces = "application/json")
@@ -402,10 +403,11 @@ public class HomeController {
         if (!id.matches("[A-Za-z0-9._-]+")) return ResponseEntity.badRequest().body("{\"ok\":false,\"message\":\"no such conflict\"}");
         String body;
         try {
-            Map<String, String> fields = new LinkedHashMap<>();
+            Map<String, Object> fields = new LinkedHashMap<>();
             fields.put("decision", String.valueOf(d.decision()));
             fields.put("by", "operator (home screen)");
             if (d.resolution() != null) fields.put("resolution", d.resolution());
+            if (d.suggested() != null) fields.put("suggested", d.suggested());
             body = JSON.writeValueAsString(fields);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             return ResponseEntity.badRequest().body("{\"ok\":false,\"message\":\"unreadable decision\"}");

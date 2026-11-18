@@ -187,6 +187,36 @@ class PurposeServiceTest {
         assertThat(PurposeService.fileOnly(files).ledger().withdrawn("input-x")).isTrue();
     }
 
+    /**
+     * T4-EY: a decision says whose words it is -- the model's suggestion taken unedited, or the operator's own -- and the
+     * ledger keeps it across a reload. Before, a decision taken through Suggest read as the operator's ("operator (home
+     * screen)"). A ledger written before this has no such field and reads as not recorded.
+     */
+    @Test
+    void aDecisionKeepsWhoseWordsItIs_andAnOlderLedgerReadsAsNotRecorded() throws Exception {
+        PurposeService purpose = PurposeService.fileOnly(files);
+        purpose.recordSeed("Build a quill registry.", "operator");
+        InputEvent menu = purpose.raiseConflict("input-x", "Control menu availability", "a menu bar", "no menu bar", null, null);
+        InputEvent pause = purpose.raiseConflict("input-x", "Pause functionality", "a key", "via menu items", null, null);
+        InputEvent older = purpose.raiseConflict("input-x", "Colours", "a gradient", "black", null, null);
+
+        purpose.decide(menu, InputEvent.FOR_OWN, "operator (home screen)", java.util.List.of(), "Remove the menu bar", true);
+        purpose.decide(pause, InputEvent.FOR_OWN, "operator (home screen)", java.util.List.of(), "Pause with the space key", false);
+        purpose.decide(older, InputEvent.FOR_RECEIVING, "operator", java.util.List.of());
+
+        PurposeService reloaded = PurposeService.fileOnly(files);
+        assertThat(reloaded.event(menu.id()).suggested()).isTrue();
+        assertThat(reloaded.event(pause.id()).suggested()).isFalse();
+        assertThat(reloaded.event(older.id()).suggested()).as("not said").isNull();
+
+        String file = Files.readString(base.resolve(PurposeService.PATH));
+        Files.writeString(base.resolve(PurposeService.PATH), file.replaceAll(",\\s*\"suggested\"\\s*:\\s*(true|false|null)", ""));
+        PurposeService fromOlderFile = PurposeService.fileOnly(files);
+        assertThat(Files.readString(base.resolve(PurposeService.PATH))).doesNotContain("\"suggested\"");
+        assertThat(fromOlderFile.event(menu.id()).suggested()).isNull();
+        assertThat(fromOlderFile.event(menu.id()).resolution()).isEqualTo("Remove the menu bar");
+    }
+
     /** T4-EG: a rewind returns the inputs' files to the point, and a later point brings them back. */
     @Test
     void theInputsFilesGoBackAndForwardWithTheirPoint() throws Exception {

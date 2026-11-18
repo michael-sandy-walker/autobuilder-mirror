@@ -214,6 +214,32 @@ class HomeControllerTest {
         assertThat(c.importProject(new HomeController.ImportRequest("x", null, null, "../here")).getStatusCode().value()).isEqualTo(404);
     }
 
+    /**
+     * T4-EY: the page says whose words a decision is, and the home screen relays it beside who decided -- before, a
+     * decision taken through Suggest reached the ledger as the operator's own.
+     */
+    @Test
+    void aDecisionIsRelayedWithWhoseWordsItIs() throws Exception {
+        ProjectLauncher launcher = idle();
+        java.util.List<String> sent = new java.util.ArrayList<>();
+        RunClient run = new RunClient(launcher) {
+            @Override
+            Reply postJson(String path, String json, java.time.Duration timeout) {
+                sent.add(path + " " + json);
+                return new Reply(200, "{}");
+            }
+        };
+        HomeController c = new HomeController(launcher, new HomeApplication.ProjectsDirectory(projects), run);
+
+        c.decide("event-1", new HomeController.Decision("own", "Remove the menu bar", true));
+        c.decide("event-2", new HomeController.Decision("receiving", null, null));
+
+        assertThat(sent.get(0)).startsWith("/autobuilder/inputs/conflicts/event-1 ")
+                .contains("\"by\":\"operator (home screen)\"").contains("\"suggested\":true")
+                .contains("\"resolution\":\"Remove the menu bar\"");
+        assertThat(sent.get(1)).doesNotContain("suggested");
+    }
+
     /** Field: the run writes an empty list as "[ ]", and Continue refused with nothing waiting. */
     @Test
     void aHeldProjectContinuesWhenNothingWaits_howeverTheRunWritesAnEmptyList() throws Exception {
