@@ -7,9 +7,14 @@
     SkeletonPlacement.packageFor(missingClass, diagnostic, sources, conventionPackage) answers the package of a
     top-level skeleton written for a class the compiler could not find, or empty when no skeleton should be
     written. Two of its answers are wrong today.
-    (1) A member reference. When the compiler reports the missing class with a class as its location
-    ("symbol: class AlternatingPair" followed by "location: class com.acme.stuck.StuckLedger") and a source
-    writes the name through that class (StuckLedger.AlternatingPair), the missing class is a member of
+    (1) A member reference. When the compiler reports the missing class with a class as its location, as the
+    build prints it (each line carries the build's prefix, and the fields are padded):
+
+        [ERROR] /p/src/test/java/com/acme/stuck/StuckLedgerPairsTest.java:[25,25] cannot find symbol
+        [ERROR]   symbol:   class AlternatingPair
+        [ERROR]   location: class com.acme.stuck.StuckLedger
+
+    and a source writes the name through that class (StuckLedger.AlternatingPair), the missing class is a member of
     StuckLedger: no top-level file in any package satisfies the reference, so packageFor returns empty.
     The location alone is not enough: a class that uses the missing name unqualified is reported as the
     location too, and then the answer stays as it is. The diagnostic may name several missing symbols; each
