@@ -18853,7 +18853,40 @@
    "terminal": "GOAL_FULFILLED",
    "total_cycles": "5",
    "toycase": "stuck-alternation v1"
+  },
+  "2026-11-18_12-04-50": {
+   "build": "e2140b10",
+   "clauses_closed_vs_control": "0",
+   "cost_readout": "build=202983ms/33 package-gate=33722ms/5 sms-commit=26409ms/16 sms-batch-build=9872ms/16 boot-gate=1648ms/5 sms-lineage-stamp=415ms/16 sms-cycle-merge=247ms/16 sms-cycle-link=229ms/15",
+   "criteria_authored": "48",
+   "criteria_elaboration": "10",
+   "criteria_executable_count": "0",
+   "criteria_executable_pct": "0",
+   "criteria_ungroundable_input": "0",
+   "drift_tail_cycles": "0",
+   "median_cycle_seconds": "119",
+   "merges": "4",
+   "peaked_at_cycle": "cycle-1795001724296 (17/17)",
+   "preserved_source": "loop-preserved",
+   "recorded": "2026-11-18",
+   "repeat_proposals": "1",
+   "repeats_refused": "2",
+   "run_duration_min": "29.7",
+   "score_delta": "+0",
+   "smoke": "SMOKE: 10/14",
+   "smoke_failed_checks": "2,3,9,14",
+   "smoke_pass": 10,
+   "smoke_preserved": "SMOKE: 10/14",
+   "smoke_strict": "10/14 discounted=none",
+   "smoke_total": 14,
+   "start_cleared_tree": "no",
+   "start_mode": "ADOPT_PROJECT",
+   "start_tree": "FOREIGN",
+   "target": "skeleton-placement",
+   "terminal": "operator-stop",
+   "total_cycles": "17",
+   "toycase": "skeleton-placement v1"
   }
  },
- "updated": "2026-11-17"
+ "updated": "2026-11-18"
 }
