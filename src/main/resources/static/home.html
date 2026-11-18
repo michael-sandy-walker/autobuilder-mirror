@@ -159,6 +159,12 @@
   #toast.ok { border-color: var(--good-rule); color: var(--good); }
   #toast.no { border-color: var(--bad-rule); color: var(--bad); }
   .missing { outline: 2px solid var(--bad-rule); outline-offset: 2px; }
+  #busy { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 1000; max-width: min(720px, calc(100vw - 32px));
+    padding: 9px 14px 9px 36px; border-radius: 8px; font-size: 12.5px; border: 1px solid var(--accent); background: var(--panel-2); }
+  #busy::before { content: ''; position: absolute; left: 12px; top: 50%; width: 12px; height: 12px; margin-top: -8px;
+    border: 2px solid var(--accent); border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { #busy::before { animation: none; } }
   @media (max-width: 640px) { .choices { grid-template-columns: 1fr; } .project { grid-template-columns: 1fr; }
     .project .acts { grid-row: auto; grid-column: 1; } }
 </style>
@@ -301,6 +307,7 @@
   </div>
 </dialog>
 <div id="toast" hidden></div>
+<div id="busy" role="status" aria-live="polite" hidden></div>
 
 <script>
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c =>
@@ -340,6 +347,22 @@ function toast(ok, text) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, ok ? 5000 : 12000);
 }
 const message = r => r.body.message || r.body.error || ('HTTP ' + r.status);
+// A slow action shows that it is working until it is done: a status at the top that stays (a toast leaves after
+// seconds, and a check takes longer), the clicked button disabled meanwhile. A dialog open on top shows it too.
+let busyCount = 0;
+function busyOn(text) {
+  busyCount++;
+  const b = $('busy'); b.textContent = text; b.hidden = false;
+  const open = document.querySelector('dialog[open]');
+  if (open && b.parentElement !== open) open.appendChild(b); else if (!open && b.parentElement !== document.body) document.body.appendChild(b);
+}
+function busyOff() { if (--busyCount <= 0) { busyCount = 0; $('busy').hidden = true; } }
+async function working(button, text, fn) {
+  const was = button ? button.disabled : false;
+  if (button) button.disabled = true;
+  busyOn(text);
+  try { return await fn(); } finally { busyOff(); if (button && button.isConnected) button.disabled = was; }
+}
 const profiles = () => $('profiles').value;
 const idle = () => run.state === 'IDLE';
 const jobBusy = () => job && !['FAILED', 'RELEASED', 'CANCELLED'].includes(job.phase);
@@ -665,7 +688,7 @@ function renderNow() {
     };
   }
   el.querySelectorAll('[data-do]').forEach(b => b.onclick = () => ({ close: closeRun, stop: stopRun, continue: continueHeld, reverse: startReverse })[b.dataset.do]());
-  el.querySelectorAll('[data-keep]').forEach(b => b.onclick = () => keepImport(b.dataset.keep));
+  el.querySelectorAll('[data-keep]').forEach(b => b.onclick = () => keepImport(b.dataset.keep, b));
   el.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => cancelImport(b.dataset.cancel, b.dataset.label));
   if (waiting && showGoalBox()) wireGoalBox();
   if ($('owngoal')) $('owngoal').onclick = e => { e.preventDefault(); ownGoal = true; rerender(); };
@@ -754,22 +777,24 @@ function countsText(newFiles, both, rules, claims) {
   return part(newFiles, 'new file', 'new files') + ', ' + part(both + rules + claims, 'open conflict', 'open conflicts')
     + (split.length ? ' (' + split.join(', ') + ')' : '') + '.';
 }
-async function keepImport(id) {
+async function keepImport(id, button) {
   await checkThenKeep([id], async () => {
-    const r = await post('/home/run/imports/' + encodeURIComponent(id) + '/keep');
-    if (r.status !== 200) toast(false, 'Not kept: ' + message(r)); else toast(true, 'Kept.');
-    refresh(); loadProjects();
-  });
+    await working(null, 'Keeping the import...', async () => {
+      const r = await post('/home/run/imports/' + encodeURIComponent(id) + '/keep');
+      if (r.status !== 200) toast(false, 'Not kept: ' + message(r)); else toast(true, 'Kept.');
+      await refresh(); loadProjects();
+    });
+  }, button);
 }
 
 // T4-EY step 2: before Keep, the import's decisions are checked against each other and against the project's. Nothing
 // flagged: it is kept at once. Otherwise a warning -- Skip keeps it as decided, Edit opens one decision again.
-async function checkThenKeep(ids, keep) {
-  toast(true, 'Checking the decisions against each other...');
+async function checkThenKeep(ids, keep, button) {
   const found = [];
   let asked = 0, unchecked = 0, failed = false;
   for (const id of ids) {
-    const r = await post('/home/run/inputs/' + encodeURIComponent(id) + '/contradictions');
+    const r = await working(button, 'Checking the decisions against each other -- this can take a minute...',
+      () => post('/home/run/inputs/' + encodeURIComponent(id) + '/contradictions'));
     if (r.status !== 200) { failed = true; continue; }
     asked += r.body.asked || 0;
     unchecked += (r.body.unchecked || []).length;
@@ -790,13 +815,15 @@ async function checkThenKeep(ids, keep) {
         + '</div>').join('')
       + '</div>').join('');
   document.querySelectorAll('[data-reopen]').forEach(b => b.onclick = async () => {
-    const r = await post('/home/run/conflicts/' + encodeURIComponent(b.dataset.reopen) + '/reopen');
+    const r = await working(b, 'Opening the decision again...',
+      () => post('/home/run/conflicts/' + encodeURIComponent(b.dataset.reopen) + '/reopen'));
     if (r.status !== 200) { toast(false, 'Not opened again: ' + message(r)); return; }
     $('dlg-contra').close();
+    await working(null, 'Updating...', () => refresh());
     toast(true, 'Opened again: decide it below, then keep.');
-    refresh();
   });
   $('contra-skip').onclick = async () => { $('dlg-contra').close(); await keep(); };
+  $('contra-skip').disabled = false;
   $('dlg-contra').showModal();
 }
 function decidedText(d) {
@@ -1315,11 +1342,13 @@ function wireJobBox() {
   if (job.phase !== 'DECIDING') return;
   const rel = $('release');
   if (rel) rel.onclick = () => checkThenKeep(pending.map(i => i.inputId), async () => {
-    const r = await post('/home/integrate/release');
-    if (r.status !== 200) toast(false, 'Not yet: ' + message(r));
-    else toast(true, job.held ? 'Kept; Autobuilder works on the combined project.' : 'Kept.');
-    refresh(); loadProjects();
-  });
+    await working(rel, job.held ? 'Keeping the imports and starting ' + job.name + '...' : 'Keeping the import...', async () => {
+      const r = await post('/home/integrate/release');
+      if (r.status !== 200) toast(false, 'Not yet: ' + message(r));
+      else toast(true, job.held ? 'Kept; Autobuilder works on the combined project.' : 'Kept.');
+      await refresh(); loadProjects();
+    });
+  }, rel);
   const cancel = $('cancel-job');
   if (cancel) cancel.onclick = async () => {
     if (!confirm('Cancel the import into "' + job.name + '"?\n\nEverything it brought in leaves the project again: files, goals, '
@@ -1331,7 +1360,7 @@ function wireJobBox() {
 }
 
 function wireConflicts() {
-  document.querySelectorAll('[data-decide]').forEach(b => b.onclick = () => decide(b.dataset.decide, b.dataset.way));
+  document.querySelectorAll('[data-decide]').forEach(b => b.onclick = () => decide(b.dataset.decide, b.dataset.way, b));
   document.querySelectorAll('[data-own]').forEach(b => b.onclick = () => { const d = draftOf(b.dataset.own); d.open = !d.open; rerender(); });
   document.querySelectorAll('[data-ask]').forEach(b => b.onclick = () => askOptions(b.dataset.ask));
   document.querySelectorAll('[data-use]').forEach(b => b.onclick = () => {
@@ -1396,17 +1425,19 @@ async function runBatch(what) {
 }
 function rerender() { lastNowHtml = ''; renderNow(); }
 
-async function decide(id, way) {
+async function decide(id, way, button) {
   // T4-EY: whose words the decision is -- the model's (a suggestion or option, unedited) or the operator's.
   const body = { decision: way, suggested: way === 'own' && !!draftOf(id).fromModel };
   if (way === 'own') {
     body.resolution = draftOf(id).text.trim();
     if (!body.resolution) { toast(false, 'Say what should hold instead.'); return; }
   }
-  const r = await post('/home/run/conflicts/' + encodeURIComponent(id), body);
-  if (r.status >= 300) { toast(false, 'Not decided: ' + message(r)); return; }
-  delete drafts[id];
-  refresh();
+  await working(button, 'Deciding...', async () => {
+    const r = await post('/home/run/conflicts/' + encodeURIComponent(id), body);
+    if (r.status >= 300) { toast(false, 'Not decided: ' + message(r)); return; }
+    delete drafts[id];
+    await refresh();
+  });
 }
 
 async function askOptions(id) {
