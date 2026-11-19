@@ -1,0 +1,12 @@
+# Obligations derived from bootstrap/seed.txt, one per line.
+# Edit freely: a hand-edited file is kept, and reported as yours.
+# Prefix a line with 'rule:' when it says HOW the work is done rather than something the
+# result can be checked for: it still guides the work, but never blocks completion.
+# Prefix a line with 'gate: tests' when the project's own test suite answers it: closure then
+# takes the test run's verdict instead of asking a model to read the source.
+# seed-sha256: 33ef1ea0423c6a36999c8626b4fd14792451eed63845becdb97a5551dbfbc13b
+# body-sha256: c7c6c11fac0afe35401d6bcf839d33c76c7e5b7932991e121248c3606188a495
+The gradient is shown.
+The flower field is shown.
+The dynamic gradient is applied.
+Painting flowers randomly is applied.

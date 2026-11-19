@@ -1,0 +1,1 @@
+The gradient together with the flower field is shown. Both the dynamic gradient as well as painting flowers randomly should be applied.
