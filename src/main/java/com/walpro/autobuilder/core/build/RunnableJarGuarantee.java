@@ -84,6 +84,19 @@ public final class RunnableJarGuarantee {
             return Optional.empty();
         }
 
+        // T1-GV: a build that names a start class the sources no longer declare (a merge deleted it) is pointed at the
+        // one that remains -- in place, so its packaging configuration is not doubled.
+        if (MAIN_CLASS_ELEMENT.matcher(pom).find()) {
+            String repointed = MAIN_CLASS_ELEMENT.matcher(pom).replaceAll(r -> declaredBy(r.group(1).trim(), sources)
+                    ? Matcher.quoteReplacement(r.group())
+                    : Matcher.quoteReplacement("<mainClass>" + mainClass + "</mainClass>"));
+            if (!repointed.equals(pom)) {
+                log.info("T1-GV: {} starts a class the sources no longer declare -- the build now starts {}",
+                        jar.get().getFileName(), mainClass);
+                return Optional.of(repointed);
+            }
+        }
+
         boolean bundled = HAS_DEPENDENCY.matcher(pom).find();
         String repaired = withRunnablePackaging(pom, mainClass, bundled);
         if (repaired.equals(pom)) return Optional.empty();
@@ -94,13 +107,15 @@ public final class RunnableJarGuarantee {
         return Optional.of(repaired);
     }
 
-    /** True when the jar can be handed to {@code java -jar} — the same question the launcher asks. */
+    /**
+     * True when the jar can be handed to {@code java -jar} — the same question the launcher asks: a Main-Class that
+     * names a class the jar carries. T1-GV: a Main-Class naming a class the jar does not carry is no entry point
+     * ({@code data/gradient-flower-field}: a merge deleted {@code RainbowFrame}, the build kept starting it, and every
+     * reader of this answer saw a declared entry point).
+     */
     static boolean declaresEntryPoint(Path jar) {
         try (JarFile jf = new JarFile(jar.toFile())) {
-            Manifest manifest = jf.getManifest();
-            if (manifest == null) return false;
-            String main = manifest.getMainAttributes().getValue("Main-Class");
-            return main != null && !main.isBlank();
+            return startsAClassItCarries(jf);
         } catch (IOException e) {
             log.debug("T4-DO: unreadable jar {} — {}", jar, e.getMessage());
             return true;   // unreadable is not evidence of absence; abstain by claiming nothing is wrong
@@ -120,9 +135,10 @@ public final class RunnableJarGuarantee {
      * answer {@code false} for the same reason they do above: the check can say the jar will not
      * run and cannot say what it should have run.
      */
-    static boolean sourcesNameSoleEntryPoint(Path artifactRoot) {
-        if (artifactRoot == null) return false;
-        return BootstrapPomResolver.soleMainClassOf(readSources(artifactRoot)) != null;
+    static boolean sourcesNameSoleEntryPoint(Path projectRoot) {
+        if (projectRoot == null) return false;
+        // T1-GV: the sources of the module that runs, as for the repair.
+        return BootstrapPomResolver.soleMainClassOf(readSources(ProjectLayout.runnableRoot(projectRoot))) != null;
     }
 
     /**
@@ -173,8 +189,11 @@ public final class RunnableJarGuarantee {
      *
      * <p>It decides nothing the in-memory form does not: same questions, same abstentions.
      */
-    public static boolean repairOnDisk(Path artifactRoot) {
-        if (artifactRoot == null) return false;
+    public static boolean repairOnDisk(Path projectRoot) {
+        if (projectRoot == null) return false;
+        // T1-GV: the runnable artifact is built in the module that runs, not at the build root of a project of modules
+        // (gradient-flower-field: jar in app/target; asked at the root, this found no jar and abstained every cycle).
+        Path artifactRoot = ProjectLayout.runnableRoot(projectRoot);
         Path pomPath = artifactRoot.resolve("pom.xml");
         if (!Files.isRegularFile(pomPath)) return false;
         // T2-FK cost gate. Asked before the source tree is read so the per-cycle caller pays a
@@ -209,8 +228,9 @@ public final class RunnableJarGuarantee {
      * evidence here even though {@link #declaresEntryPoint} treats it as "nothing wrong" — that
      * method guards against raising a defect, this one against retiring one.
      */
-    public static boolean entryPointDeclared(Path artifactRoot) {
-        if (artifactRoot == null) return false;
+    public static boolean entryPointDeclared(Path projectRoot) {
+        if (projectRoot == null) return false;
+        Path artifactRoot = ProjectLayout.runnableRoot(projectRoot);
         Optional<Path> jar = builtJar(artifactRoot);
         if (jar.isPresent() && manifestNamesMainClass(jar.get())) return true;
         Path pomPath = artifactRoot.resolve("pom.xml");
@@ -227,12 +247,34 @@ public final class RunnableJarGuarantee {
     /** The manifest names a Main-Class; unreadable or absent answers false. */
     private static boolean manifestNamesMainClass(Path jar) {
         try (JarFile jf = new JarFile(jar.toFile())) {
-            Manifest manifest = jf.getManifest();
-            String main = manifest == null ? null : manifest.getMainAttributes().getValue("Main-Class");
-            return main != null && !main.isBlank();
+            return startsAClassItCarries(jf);
         } catch (IOException e) {
             return false;
         }
+    }
+
+    /** The manifest names a Main-Class and the archive carries that class. */
+    private static boolean startsAClassItCarries(JarFile jf) throws IOException {
+        Manifest manifest = jf.getManifest();
+        String main = manifest == null ? null : manifest.getMainAttributes().getValue("Main-Class");
+        if (main == null || main.isBlank()) return false;
+        return jf.getEntry(main.strip().replace('.', '/') + ".class") != null;
+    }
+
+    /** T1-GV: whether the sources declare {@code fqn} -- a type of that simple name in that package. */
+    static boolean declaredBy(String fqn, Map<String, String> sources) {
+        if (fqn == null || fqn.isBlank() || sources == null) return false;
+        int dot = fqn.lastIndexOf('.');
+        String pkg = dot < 0 ? "" : fqn.substring(0, dot), simple = fqn.substring(dot + 1);
+        Pattern type = Pattern.compile("\\b(class|interface|enum|record)\\s+" + Pattern.quote(simple) + "\\b");
+        Pattern packageLine = Pattern.compile("(?m)^\\s*package\\s+" + Pattern.quote(pkg) + "\\s*;");
+        Pattern anyPackage = Pattern.compile("(?m)^\\s*package\\s");
+        for (String body : sources.values()) {
+            if (body == null || !type.matcher(body).find()) continue;
+            boolean samePackage = pkg.isEmpty() ? !anyPackage.matcher(body).find() : packageLine.matcher(body).find();
+            if (samePackage) return true;
+        }
+        return false;
     }
 
     /**

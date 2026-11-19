@@ -205,6 +205,11 @@ class PackageGateTest {
             out.putNextEntry(new java.util.jar.JarEntry("marker.txt"));
             out.write("x".getBytes());
             out.closeEntry();
+            // T1-GV: a launchable archive carries the class its manifest starts.
+            if (mainClass != null) {
+                out.putNextEntry(new java.util.jar.JarEntry(mainClass.replace('.', '/') + ".class"));
+                out.closeEntry();
+            }
         }
     }
 

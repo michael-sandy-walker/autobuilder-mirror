@@ -46,11 +46,20 @@ class RunnableJarGuaranteeTest {
             """;
 
     private void writeJar(String name, String mainClass) throws IOException {
-        Path target = Files.createDirectories(root.resolve("target"));
+        writeJar(root, name, mainClass, true);
+    }
+
+    /** A jar whose manifest starts {@code mainClass}; {@code carriesIt} false is a merge's leftover: the class is gone. */
+    private static void writeJar(Path dir, String name, String mainClass, boolean carriesIt) throws IOException {
+        Path target = Files.createDirectories(dir.resolve("target"));
         Manifest manifest = new Manifest();
         manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
         if (mainClass != null) manifest.getMainAttributes().put(Attributes.Name.MAIN_CLASS, mainClass);
         try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(target.resolve(name)), manifest)) {
+            if (mainClass != null && carriesIt) {
+                out.putNextEntry(new java.util.jar.JarEntry(mainClass.replace('.', '/') + ".class"));
+                out.closeEntry();
+            }
             out.flush();
         }
     }
@@ -238,5 +247,84 @@ class RunnableJarGuaranteeTest {
     void entryPointNotDeclared_whenNothingCanBeEstablished() {
         assertThat(RunnableJarGuarantee.entryPointDeclared(root)).isFalse();
         assertThat(RunnableJarGuarantee.entryPointDeclared(null)).isFalse();
+    }
+
+    // ---------------------------------------------------------------- T1-GV --
+
+    /**
+     * T1-GV, recorded (data/gradient-flower-field, 2026-11-18): a Bring together merged two applications into the flower
+     * project's frame and deleted the gradient's; the build of the module that runs kept starting the deleted class,
+     * and the jar it built could not start. The build now starts the one class that remains, in place.
+     */
+    @Test
+    void aBuildStartingAClassTheMergeDeletedIsPointedAtTheOneThatRemains_inTheModuleThatRuns() throws IOException {
+        Path app = Files.createDirectories(root.resolve("app"));
+        Files.writeString(root.resolve("pom.xml"), "<project><modules><module>app</module></modules></project>");
+        Files.writeString(root.resolve(".run-module"), "app\n");
+        String pom = """
+                <project>
+                    <artifactId>app</artifactId>
+                    <build><plugins><plugin>
+                        <artifactId>maven-jar-plugin</artifactId>
+                        <configuration><archive><manifest>
+                            <mainClass>com.example.RainbowFrame</mainClass>
+                        </manifest></archive></configuration>
+                    </plugin></plugins></build>
+                </project>
+                """;
+        Files.writeString(app.resolve("pom.xml"), pom);
+        Path frame = app.resolve("src/main/java/com/example/screensaver/ScreensaverFrame.java");
+        Files.createDirectories(frame.getParent());
+        Files.writeString(frame, "package com.example.screensaver;\npublic class ScreensaverFrame {\n"
+                + "    public static void main(String[] args) {}\n}\n");
+        writeJar(app, "app-0.0.1-SNAPSHOT.jar", "com.example.RainbowFrame", false);
+
+        assertThat(RunnableJarGuarantee.entryPointDeclared(root)).as("a start class the jar does not carry is no entry point")
+                .isFalse();
+        assertThat(RunnableJarGuarantee.repairOnDisk(root)).isTrue();
+
+        String repaired = Files.readString(app.resolve("pom.xml"));
+        assertThat(repaired).contains("<mainClass>com.example.screensaver.ScreensaverFrame</mainClass>")
+                .doesNotContain("RainbowFrame");
+        assertThat(repaired.split("maven-jar-plugin", -1)).as("pointed in place, not a second packaging block").hasSize(2);
+        assertThat(RunnableJarGuarantee.entryPointDeclared(root)).as("declared in the build, before the rebuild").isTrue();
+        assertThat(RunnableJarGuarantee.repairOnDisk(root)).as("written once").isFalse();
+    }
+
+    /** Known negative: a start class the sources still declare is the project's choice, left alone. */
+    @Test
+    void aStartClassTheSourcesStillDeclareIsLeftAlone() throws IOException {
+        Map<String, String> sources = Map.of("src/main/java/com/demo/Main.java",
+                "package com.demo;\npublic class Main { public static void main(String[] args) {} }\n");
+        writeJar("demo.jar", "com.demo.Main");
+        String pom = "<project><build><plugins><plugin><artifactId>maven-jar-plugin</artifactId><configuration><archive>"
+                + "<manifest><mainClass>com.demo.Main</mainClass></manifest></archive></configuration></plugin></plugins>"
+                + "</build></project>";
+
+        assertThat(RunnableJarGuarantee.repairedPom(root, pom, sources)).isEmpty();
+    }
+
+    /** Two classes with a main: the check can say the jar will not start, not which one should -- it abstains. */
+    @Test
+    void aDeletedStartClassWithTwoCandidatesLeft_isNotGuessed() throws IOException {
+        Map<String, String> sources = Map.of(
+                "src/main/java/a/One.java", "package a;\npublic class One { public static void main(String[] args) {} }\n",
+                "src/main/java/a/Two.java", "package a;\npublic class Two { public static void main(String[] args) {} }\n");
+        writeJar(root, "demo.jar", "a.Gone", false);
+        String pom = "<project><build><plugins><plugin><artifactId>maven-jar-plugin</artifactId><configuration><archive>"
+                + "<manifest><mainClass>a.Gone</mainClass></manifest></archive></configuration></plugin></plugins>"
+                + "</build></project>";
+
+        assertThat(RunnableJarGuarantee.repairedPom(root, pom, sources)).isEmpty();
+        assertThat(RunnableJarGuarantee.declaresEntryPoint(root.resolve("target/demo.jar"))).isFalse();
+    }
+
+    @Test
+    void declaredBy_readsPackageAndName() {
+        Map<String, String> sources = Map.of("x", "package com.demo;\nclass Main {}", "y", "class Top {}");
+        assertThat(RunnableJarGuarantee.declaredBy("com.demo.Main", sources)).isTrue();
+        assertThat(RunnableJarGuarantee.declaredBy("com.other.Main", sources)).isFalse();
+        assertThat(RunnableJarGuarantee.declaredBy("Top", sources)).isTrue();
+        assertThat(RunnableJarGuarantee.declaredBy("Main", sources)).as("Main is in a package").isFalse();
     }
 }
