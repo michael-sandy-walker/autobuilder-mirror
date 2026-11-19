@@ -1,0 +1,40 @@
+# Obligations derived from bootstrap/seed.txt, one per line.
+# Edit freely: a hand-edited file is kept, and reported as yours.
+# Prefix a line with 'rule:' when it says HOW the work is done rather than something the
+# result can be checked for: it still guides the work, but never blocks completion.
+# Prefix a line with 'gate: tests' when the project's own test suite answers it: closure then
+# takes the test run's verdict instead of asking a model to read the source.
+# seed-sha256: 7be0072a9d941a34cc1d8409748228ad666a8b084625cb0d9ba91c78d8e1acab
+# body-sha256: 393d60ad7b280c55567ddb39b15bbc0349b7b60f7d0821e151db9545a37f12a9
+Zone is an enum of seven zones in the order NORTH, EAST, SOUTH, WEST, HARBOR, VALLEY, SUMMIT.
+Zone.of(String postcode) raises IllegalArgumentException if the postcode is not exactly five digits '0'-'9'.
+Zone.of(String postcode) raises IllegalArgumentException if the postcode is null.
+Zone.of(String postcode) returns the zone at position (sum of digits mod 7) in the enum order.
+A label code reads ZZ-NNNNN-C.
+ZZ is the first two letters of the zone's name.
+NNNNN is the running number zero-padded to five digits.
+C is the check character.
+Labeler.checkChar(String body) is a static method returning a char.
+Labeler.checkChar(String body) expects a body of seven characters: two zone letters followed by five digits.
+In Labeler.checkChar, a digit character has a value equal to its digit 0-9.
+In Labeler.checkChar, a letter A-Z has a value from 10 to 35.
+In Labeler.checkChar, characters are multiplied by weights repeating 7, 3, 9 starting from the first character.
+In Labeler.checkChar, the sum of products mod 19 determines the position in the alphabet "ABCDEFGHJKLMNPRTVWX".
+In Labeler.checkChar, position 0 corresponds to the letter A.
+Labeler is a class with a no-argument constructor.
+Labeler.next(String postcode) returns the next label code for that postcode.
+Running numbers count from 1 per Labeler instance.
+Running numbers count across all postcodes for a single Labeler instance.
+Labeler.next(String postcode) raises IllegalArgumentException if the postcode is refused by Zone.of.
+Labeler.next(String postcode) does not increment the running number if the postcode is invalid.
+Labeler.isValid(String code) is a static method.
+Labeler.isValid(String code) returns true only when the code reads ZZ-NNNNN-C.
+Labeler.isValid(String code) requires ZZ to be one of the seven zone letter pairs.
+Labeler.isValid(String code) requires NNNNN to be five digits.
+Labeler.isValid(String code) requires C to be the check character of ZZNNNNN.
+Labeler.isValid(String code) returns false otherwise.
+Labeler.isValid(String code) returns false if the input is null.
+The classes Zone and Labeler are created under src/main/java in package org.labelmaker.label.
+Tests for the library are written under src/test/java.
+gate: tests the whole suite passes.
+the library does what is described above
