@@ -1,0 +1,63 @@
+# Obligations derived from bootstrap/seed.txt, one per line.
+# Edit freely: a hand-edited file is kept, and reported as yours.
+# Prefix a line with 'rule:' when it says HOW the work is done rather than something the
+# result can be checked for: it still guides the work, but never blocks completion.
+# Prefix a line with 'gate: tests' when the project's own test suite answers it: closure then
+# takes the test run's verdict instead of asking a model to read the source.
+# seed-sha256: 146af9177e13c14f5d953343554eeb7554d08654c8d3b742e37045f8fdda80c8
+# body-sha256: 09b7c3c27a69352ad12ba4ef759c1c3771f3e13692e3538fdb417e3bd2ea1c9c
+Zone.of("00000") returns NORTH
+Zone.of("01067") returns NORTH
+Zone.of("10115") returns EAST
+Zone.of("20095") returns SOUTH
+Zone.of("50667") returns WEST
+Zone.of("60311") returns HARBOR
+Zone.of("00005") returns VALLEY
+Zone.of("00006") returns SUMMIT
+Zone.of("99999") returns WEST
+Zone.of(null) raises IllegalArgumentException with message postcode must be exactly five digits
+Zone.of raises IllegalArgumentException with message postcode must be exactly five digits when the postcode is not exactly five characters long
+Zone.of raises IllegalArgumentException with message postcode must contain only digits when the postcode contains a non-digit character
+Labeler.checkChar("NO00001") returns 'N'
+Labeler.checkChar("EA00001") returns 'C'
+Labeler.checkChar("WE12345") returns 'J'
+Labeler.checkChar("SU99999") returns 'N'
+Labeler.checkChar("VA00042") returns 'N'
+Labeler.checkChar("HA00099") returns 'J'
+Labeler.checkChar("SO00042") returns 'R'
+Labeler.checkChar("0000000") returns 'A'
+Labeler.checkChar(null) raises IllegalArgumentException with message body must be exactly 7 characters
+Labeler.checkChar("NO0000") raises IllegalArgumentException with message body must be exactly 7 characters
+Labeler.checkChar("NO000012") raises IllegalArgumentException with message body must be exactly 7 characters
+Labeler.checkChar raises IllegalArgumentException with message body must contain only uppercase letters and digits when the body contains a lowercase letter
+Labeler.checkChar raises IllegalArgumentException with message body must contain only uppercase letters and digits when the body contains a non-alphanumeric character
+Labeler.next("10115") returns "EA-00001-C"
+Labeler.next("20095") returns "SO-00001-K"
+Each subsequent Labeler.next call on the same instance increments the running number by one
+Labeler.next("50667") returns "WE-00001-H"
+Labeler.next("50667") returns "WE-00002-R"
+Labeler.next("50667") returns "WE-00003-C"
+Labeler.next("1011") raises IllegalArgumentException with message postcode must be exactly five digits
+Labeler.next("60311") returns "HA-00004-G"
+Labeler.next(null) raises IllegalArgumentException with message postcode must be exactly five digits
+Labeler.next("1O115") raises IllegalArgumentException with message postcode must contain only digits
+Labeler.next does not increment the running number when the postcode is rejected
+Each Labeler instance keeps its own running counter starting at 00001
+Labeler.isValid returns true for a well-formed label whose zone prefix, five digits and trailing check character are all consistent with the weighted computation
+Labeler.isValid returns false when the trailing check character does not match the weighted computation for the rest of the label
+Labeler.isValid returns false when the two-character zone prefix does not match any known zone
+Labeler.isValid returns false when the label is not exactly ten characters long
+Labeler.isValid returns false when dashes are missing from the label
+Labeler.isValid returns false when the label is lowercase instead of uppercase
+Labeler.isValid returns false when the label is empty
+Labeler.isValid returns false when the label is null
+Labeler.isValid returns false when the five-digit middle field contains a non-digit character
+Labeler.isValid returns false when dashes are in the wrong positions
+Labeler.ALPHABET is "ABCDEFGHJKLMNPRTVWX"
+Labeler.WEIGHTS is { 7, 3, 9, 7, 3, 9, 7 }
+Zone enum constants are in the order NORTH, EAST, SOUTH, WEST, HARBOR, VALLEY, SUMMIT
+rule: Labeler goes through Zone (its checks stop holding when that is taken out): a change to Zone keeps what Labeler does working.
+rule: "Postcode-to-zone mapping" is the work of Zone, and what Zone and Labeler do rests on it (seen by taking it out): behaviour of that kind is changed there, not built a second time beside it.
+rule: "Weighted check-character computation" is the work of Labeler, and what Labeler does rests on it (seen by taking it out): behaviour of that kind is changed there, not built a second time beside it.
+rule: "Sequential label generation" is the work of Labeler, and what Labeler does rests on it (seen by taking it out): behaviour of that kind is changed there, not built a second time beside it.
+rule: "Label validation" is the work of Labeler, and what Labeler does rests on it (seen by taking it out): behaviour of that kind is changed there, not built a second time beside it.

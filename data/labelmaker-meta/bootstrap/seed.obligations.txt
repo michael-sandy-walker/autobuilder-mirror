@@ -1,0 +1,32 @@
+# Obligations derived from bootstrap/seed.txt, one per line.
+# Edit freely: a hand-edited file is kept, and reported as yours.
+# Prefix a line with 'rule:' when it says HOW the work is done rather than something the
+# result can be checked for: it still guides the work, but never blocks completion.
+# Prefix a line with 'gate: tests' when the project's own test suite answers it: closure then
+# takes the test run's verdict instead of asking a model to read the source.
+# seed-sha256: f56608ce789ed894c01c972f03b5f999937b93b1dfa8a7d54cd99bc231652063
+# body-sha256: 79d261cb3572e1d19949a5196c14615988e32a71d0b5b01d48ede5dffb5a0c6e
+Zone.of maps a five-digit postcode to a zone whose ordinal equals the sum of its digits modulo seven
+Zone.of rejects a null postcode by throwing IllegalArgumentException
+Zone.of rejects a postcode that is not exactly five characters long by throwing IllegalArgumentException
+Zone.of rejects a five-character string containing a non-digit character by throwing IllegalArgumentException
+Labeler.checkChar returns the 19-letter alphabet character at index (sum of each character's value times its position's weight) mod 19, where a digit d has value d and an uppercase letter L has value 10+(L-'A'), with weights {7,3,9,7,3,9,7}
+Labeler.checkChar throws IllegalArgumentException when the body is null
+Labeler.checkChar throws IllegalArgumentException when the body is not exactly seven characters long
+Labeler.checkChar throws IllegalArgumentException when the body contains a lowercase letter
+Labeler.checkChar throws IllegalArgumentException when the body contains a non-alphanumeric character
+Labeler.next returns a label whose zone prefix is the first two letters of the zone derived from the postcode, whose number is 00001, and whose check character is the weighted check of that body
+Each subsequent Labeler.next call on the same instance increments the running number by one
+A rejected postcode makes Labeler.next throw IllegalArgumentException and consumes no running number
+Each Labeler instance keeps its own running counter, starting at 00001
+Labeler.isValid returns true for a well-formed label whose zone prefix, five digits and trailing check character are all consistent with the weighted computation
+Labeler.isValid returns false when the trailing check character does not match the weighted computation for the rest of the label
+Labeler.isValid returns false when the two-character zone prefix does not match any known zone
+Labeler.isValid returns false when the label is not exactly ten characters long
+Labeler.isValid returns false when the dashes are missing from the label
+Labeler.isValid returns false when the label is lowercase instead of uppercase
+Labeler.isValid returns false for an empty label
+Labeler.isValid returns false for a null label
+Labeler.isValid returns false when the five-digit middle field contains a non-digit character
+Labeler.isValid returns false when the dashes are in the wrong positions
+A postcode that is refused uses up no running number: the next valid label continues from the last one issued

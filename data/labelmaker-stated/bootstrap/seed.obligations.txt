@@ -1,0 +1,30 @@
+# Obligations derived from bootstrap/seed.txt, one per line.
+# Edit freely: a hand-edited file is kept, and reported as yours.
+# Prefix a line with 'rule:' when it says HOW the work is done rather than something the
+# result can be checked for: it still guides the work, but never blocks completion.
+# Prefix a line with 'gate: tests' when the project's own test suite answers it: closure then
+# takes the test run's verdict instead of asking a model to read the source.
+# seed-sha256: a597d2ba0a9049b69919eebbe6c80f43705ee43fde19145780c6a283c18ccf8f
+# body-sha256: 130b2c5563a059f1cf70bf6fbd2299f42692a46003740697befb31e4064f5f97
+Zone.of maps a five-digit postcode to the zone whose ordinal equals the sum of its digits modulo seven
+Zone.of throws IllegalArgumentException when the postcode is null
+Zone.of throws IllegalArgumentException when the postcode is not exactly five characters long
+Zone.of throws IllegalArgumentException when any character of the five-character postcode is not a digit
+Labeler.checkChar returns the alphabet letter at index (sum of each character's value times its position's weight) mod 19, where digits are 0-9 and uppercase letters are 10-35, for a valid seven-character body
+Labeler.checkChar throws IllegalArgumentException when the body is null
+Labeler.checkChar throws IllegalArgumentException when the body is not exactly seven characters long
+Labeler.checkChar throws IllegalArgumentException when the body contains a lowercase letter
+Labeler.checkChar throws IllegalArgumentException when the body contains a non-alphanumeric character
+Labeler.next produces a label with the shape ZONE-NNNNN-C, where the zone prefix is the two-letter prefix for the postcode, the number is zero-padded to five digits starting at 00001, and the check character is the weighted check character for the body
+Each subsequent call to Labeler.next on the same instance increments the running number by one
+Each Labeler instance counts independently, starting again at 00001
+Labeler.isValid returns true for a well-formed code whose zone prefix, five digits and check character all satisfy the rules
+Labeler.isValid returns false when the trailing check character does not match the weighted rule for the body
+Labeler.isValid returns false when the two-letter zone prefix does not match any known zone
+Labeler.isValid returns false when the code is not exactly ten characters long
+Labeler.isValid returns false when the dashes are not in positions 2 and 8
+Labeler.isValid returns false when the code is lowercase rather than uppercase
+Labeler.isValid returns false for a null argument
+Labeler.isValid returns false when any of the five middle characters is not a digit
+A postcode that is refused uses up no running number: the next valid label continues from the last one issued.
+Labeler.issued() returns how many labels have been issued so far.

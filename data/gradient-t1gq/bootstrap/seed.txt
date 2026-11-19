@@ -1,0 +1,1 @@
+An AWT application displaying a rainbow gradient background shining and radiating different colors all over the screen. The screen can be maximized or is 800x600 pixels.
