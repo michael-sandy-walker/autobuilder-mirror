@@ -53,3 +53,33 @@ Context: reviewed 2026-11-19 alongside T5-BZ, whose step 1 rewrites this class's
 - 2026-11-19 -- `editsFirstBlock` derives a class name by stripping `".java"` from the path --
   an ecosystem assumption in framework code ([[feedback-no-ecosystem-jargon-in-framework-code]]).
   Suggested: the file's base name without extension.
+
+## `EvolutionAgent` -- `src/main/java/com/walpro/autobuilder/agent/evolution/EvolutionAgent.java`
+
+Context: reviewed 2026-11-20 after T5-BZ's divergence measurement; the divergence switch itself
+(`useDivergent`, `isRegressing`, T2-AO's consumption check) is T5-BZ step 1's, not listed here.
+
+- 2026-11-20 -- `computeProjectDiff` treats a cycle as bootstrap when `cycleName` is null or starts
+  with `"bootstrap"`. The loop names every cycle `"cycle-" + millis` (`CycleContextCoordinator`,
+  `CheckpointService`); no `bootstrap*` name appears in any target log, only
+  `EvolutionAgentDiffPathTest` builds one. A control-flow decision on a name prefix, one branch of
+  it reachable only from a test. Suggested: decide from the state (no accepted cycle and no
+  mutation path yet), delete the name test; also make the method private once the test reads it
+  through `execute`.
+- 2026-11-20 -- when `applyRegularMutations` or the diff throws, the catch logs and returns the
+  context AFTER `unmergedEvolutionWork(true)` and the evaluation window were set, but without
+  `withLastEvolutionOutcome` -- evaluation is made eligible for a mutation that was not written.
+  Never happened: 0 "Failed to apply mutations" lines in the target logs and 400 backup logs.
+  Suggested: set the flags only after the write succeeded.
+- 2026-11-20 -- `ensureAttemptId` always sets `lastAttemptId` to `cycleName` (a UUID only when the
+  name is blank, which the loop never produces). Seven readers (graph registrars,
+  `GraphQueryService`, `EvaluationAgent`) read a copy of the cycle name. Suggested: read
+  `cycleName` and delete the field -- check the graph's `attemptId` properties keep their meaning.
+- 2026-11-20 -- `applyCompileDiagnosticSteering` returns its `context` unchanged; it only emits a
+  behaviour event. The steering block is also rendered twice per cycle (here to decide the event,
+  again inside the prompt). Suggested: a void method now; with T5-BZ's components, the component's
+  own render result carries the event and the second render goes.
+- 2026-11-20 -- stale names: log messages and one request source say "EvolutionExecutionAgent";
+  `// TODO: should withMerged(!changed) be added here?` at the end of `runEvolution` asks a
+  question nothing since has answered (merge state is the merge agent's). Suggested: rename to the
+  class's name, delete the TODO.
