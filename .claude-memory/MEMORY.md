@@ -13,11 +13,12 @@ Restamp a line the day you re-check it against its file.
 - Build `mvn clean install`, test `mvn test -Dtest=C#m`; targets `data/<name>/`, runs pick by `PREFLIGHT_TARGET=x`; goal stack `meta/GoalStack.json`; profiles `test`, `dev-local`, `dev-auto`, `fast`
 - **`.claude-memory/` IS the loading memory** — checkout/branch/cherry-pick touching it mutates live memory; commit first. Tiers T1 correctness .. T6 harness
 ## Roadmap
-- `roadmap-overview.md` — thin per-ticket index by tier. (reviewed 2026-11-18)
-- `roadmap.md` — backlog and ticket bodies (source of truth). (reviewed 2026-11-18)
+- `roadmap-overview.md` — thin per-ticket index by tier. (reviewed 2026-11-20)
+- `roadmap.md` — backlog and ticket bodies (source of truth). (reviewed 2026-11-20)
 - `tier_definitions.md` — tier meanings. (reviewed 2026-09-08)
 ## Meta / Process (YOU+ME work, not the product)
 - `meta_process.md` — how YOU+ME divide/sequence/staff work; "Model" = which Claude runs a session. (reviewed 2026-10-20)
+- `refactoring_notes.md` -- review findings per class, not a queue; BEFORE changing a class, read its entry and fold in what fits the ticket. (reviewed 2026-11-20)
 ## Project insights
 Direction and orientation:
 - `project_session_agenda.md`: 2026-08-23 REORDER section is live; S1-S6 reasoning only; never a queue. (reviewed 2026-09-08)

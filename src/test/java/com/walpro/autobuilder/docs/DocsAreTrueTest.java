@@ -19,7 +19,17 @@ class DocsAreTrueTest {
 
     @Test
     void theDocumentsNameOnlyWhatExists() throws Exception {
-        Path script = Path.of("scripts/doc_check.py");
+        runCheck("scripts/doc_check.py");
+    }
+
+    /** The refactoring notes name only classes that exist, so a rename or deletion cannot orphan an entry. */
+    @Test
+    void theRefactoringNotesNameOnlyClassesThatExist() throws Exception {
+        runCheck("scripts/refactoring_notes_check.py");
+    }
+
+    private static void runCheck(String path) throws Exception {
+        Path script = Path.of(path);
         Assumptions.assumeTrue(Files.exists(script), "run from the repository root");
         Process p;
         try {
@@ -30,7 +40,7 @@ class DocsAreTrueTest {
         }
         boolean done = p.waitFor(60, TimeUnit.SECONDS);
         String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        assertThat(done).as("doc_check finished").isTrue();
+        assertThat(done).as(path + " finished").isTrue();
         assertThat(p.exitValue()).as(out).isZero();
     }
 }
