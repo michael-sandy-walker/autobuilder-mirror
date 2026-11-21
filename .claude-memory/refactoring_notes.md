@@ -12,11 +12,15 @@ An entry is picked up in one of two ways:
 
 **Entries expire.** When an entry is done or obsolete it is DELETED, and the commit names the
 ticket that did it. `scripts/refactoring_notes_check.py` (run with the suite by
-`DocsAreTrueTest`) fails when a heading's file no longer exists or no longer declares the class,
-so a rename or deletion cannot leave an orphaned entry.
+`DocsAreTrueTest`) fails when a named class's file no longer exists or no longer declares the
+class (a class heading or a concern's `Classes:` line), so a rename or deletion cannot leave an
+orphaned entry.
 
-**Format.** One `## ` heading per class: the class name and its path, both in backticks. Under
-it, one bullet per finding: `- YYYY-MM-DD -- finding. Why it matters. Suggested change.`
+**Format.** Two kinds of section. A finding local to one class: a `## ` heading with the class
+name and its path, both in backticks. A finding that spans classes: `## Concern: <name>`, with a
+`Classes:` line naming every class it touches as `` `Name` -- `path` `` pairs separated by `;` --
+so a search for a class name finds both kinds. Under either, one bullet per finding:
+`- YYYY-MM-DD -- finding. Why it matters. Suggested change.`
 State facts as found on that date; re-check them before acting (premises expire,
 [[project-ticket-premises-expire]]).
 
@@ -83,3 +87,32 @@ Context: reviewed 2026-11-20 after T5-BZ's divergence measurement; the divergenc
   `// TODO: should withMerged(!changed) be added here?` at the end of `runEvolution` asks a
   question nothing since has answered (merge state is the merge agent's). Suggested: rename to the
   class's name, delete the TODO.
+
+## Concern: recombination / divergence leftovers
+
+Classes: `EvolutionOutcome` -- `src/main/java/com/walpro/autobuilder/agent/evolution/model/EvolutionOutcome.java`; `EvolutionActionRegistrar` -- `src/main/java/com/walpro/autobuilder/graph/evolution/EvolutionActionRegistrar.java`; `CycleContextData` -- `src/main/java/com/walpro/autobuilder/core/lifecycle/CycleContextData.java`; `ContextLineageTracker` -- `src/main/java/com/walpro/autobuilder/core/lifecycle/ContextLineageTracker.java`; `SmsCycleIngestor` -- `src/main/java/com/walpro/autobuilder/memory/sms/SmsCycleIngestor.java`; `EvolutionLLMAdapter` -- `src/main/java/com/walpro/autobuilder/agent/evolution/EvolutionLLMAdapter.java`; `EvolutionAgent` -- `src/main/java/com/walpro/autobuilder/agent/evolution/EvolutionAgent.java`; `EvolutionProtocolContract` -- `src/main/java/com/walpro/autobuilder/protocol/evolution/EvolutionProtocolContract.java`
+
+Context: moved here 2026-11-21 when T5-BZ was deferred ("not the best idea to change so much within
+the core without having proven a clear benefit"). These change no behaviour; the divergence
+mechanism itself (switch, ten request sites, texts) stays as it is -- see T5-BZ's measurements.
+
+- 2026-11-21 -- `EvolutionOutcome.recombined` / `withRecombined` is read only to label the graph
+  action `RECOMBINATION` instead of `MUTATION_APPLIED` in `EvolutionActionRegistrar`; no query,
+  script or observatory page reads that label back. `recombined` is the same boolean as the
+  contract's `divergent`. Suggested: delete the field and the label (check the graph's existing
+  `RECOMBINATION` actions are not queried anywhere first).
+- 2026-11-21 -- `CycleContextData.lastRecombinationFingerprint` is never set anywhere: carried
+  forward by `ContextLineageTracker` and ingested always-null by `SmsCycleIngestor`.
+  `recombinationSourceCycleName` is written by `ContextLineageTracker` and read only by itself, to
+  carry it forward. Suggested: delete both.
+- 2026-11-21 -- `EvolutionLLMAdapter.evolveDivergent` only calls `evolve(ctx, true)` and converts
+  `IOException`; `EvolutionAgent` can call `evolve(ctx, divergent)` directly (with the
+  `throws IOException` entry under `EvolutionLLMAdapter`).
+- 2026-11-21 -- `EvolutionProtocolContract.getUserPrompt` has five overloads; production calls only
+  the longest, four test files call the others. Suggested: one signature, tests pass defaults.
+- 2026-11-21 -- the contract's "Score Plateau Detected" paragraph never renders: `SCORE_PLATEAU` was
+  raised 174 times in the target logs (September-November) and the paragraph appeared 0 times (280
+  times in the April-July backups). The signal is consumed by `RuleBasedDeliberationProposer`
+  (merge boost, divergence request, replan) before an evolution prompt is built. Suggested: delete
+  the paragraph -- or, if the plateau should reach the evolution model, route it as a concrete fact
+  (the replays found the generic paragraphs of this kind do not help).

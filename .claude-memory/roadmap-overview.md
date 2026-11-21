@@ -516,7 +516,7 @@
 
 ## Tier 5 — Quality / observability (48)
 
-- [ ] `T5-BZ` -- Every agent's prompt as an ordered list of components appended by one composer loop that owns the budget; step 1 the evolution adapter's ten appended blocks, step 2 the blocks inside all seven contracts; done = byte-identical replay per step; filed 2026-11-19 at the user's word
+- [>] `T5-BZ` -- Every agent's prompt as an ordered list of components appended by one composer loop that owns the budget; step 1 the evolution adapter's ten appended blocks, step 2 the blocks inside all seven contracts; done = byte-identical replay per step; filed 2026-11-19 at the user's word; DEFERRED 2026-11-21 (no measured benefit; re-enter when prompt assembly needs the composer or these mechanisms are measured to cost something)
 - [x] `T5-BS` -- an elaborate documentation, one TECHNICAL and one FUNCTIONAL, that a newcomer can work from; an existence check keeps them true; where they live and who the functional one is for are the user's to decide. Filed 2026-10-01; CLOSED 2026-10-03 after the user's read-through (configuration reference now described from code comments).
 - [x] `T5-BT` -- the measured system is the default system: 31 A/B-or-just-in-case switches removed with their behaviour kept on, preflight's five launch flags and admission cap 6 made defaults, the inner fix chain bounded by repeated writes. Filed and CLOSED 2026-10-04.
 - [x] `T5-BU` -- the deferred-mutation restage (T4-BE) never restaged anything (0 in 581 runs; 85 cleared, 85 dropped for drift) -- delete it, keep the blocker diagnostics; filed and CLOSED 2026-11-08 (`7cb7b406`)
