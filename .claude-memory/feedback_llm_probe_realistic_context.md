@@ -22,3 +22,12 @@ not a premise. A probe runs at the run's settings; a claim about the model's beh
 instrument.
 
 **2026-11-11 (T1-GK), replay through the REAL code path.** To measure a prompt change, a throwaway test (not `*Test`, deleted after) loaded a saved account JSON, built the client with `LLMClient.forChannel(...)` and the run's settings (`qwen3.8`, `reasoning-effort: none`), and called the component itself (`SeedComposer.compose`) -- no reimplemented prompt. The baseline reproduced the field output byte for byte, which is the check that the replay is faithful. At temperature 0, N replays of one input are ONE sample: vary the INPUT (other saved accounts) for n, not the repeat count.
+
+**2026-11-21, the answer depends on the call BEFORE it, not only on the prompt.** Replaying the analysis' second
+call (pass 2, after a graph query) reproduced 0 of 5 logged answers -- same opening, diverging after a few dozen
+characters -- while its first calls reproduced 30 of 30 the day before. Replaying the run's own pass-1 call
+immediately before pass 2 made it reproduce 2 of 2 byte for byte: Ollama reuses the cached prefix the two calls
+share, and the cache state changes the numerics enough to fork the answer. So temperature 0 is reproducible only
+for the same (previous call, prompt) pair. **How to apply:** when a logged call followed a call with a long shared
+prefix (pass 2 after pass 1, a validation retry), replay that previous call first -- before EACH arm -- and confirm
+fidelity before reading any A/B.

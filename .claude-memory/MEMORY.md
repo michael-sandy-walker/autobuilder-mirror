@@ -114,7 +114,7 @@ Evidence discipline:
 - `feedback_replay_over_batches.md`: validate by deterministic replay; a DoD names its instrument; make the case happen (direct build, a console-driven ear test) instead of waiting for it in a run; name the ticket's purpose before the next fix. (reviewed 2026-11-16)
 - `feedback_measure_before_widening_a_working_rule.md`: a gap in a run that still closes is to measure, not widen. (reviewed 2026-10-20)
 - `feedback_short_field_run_after_context_change.md`: short live run after any cycle-context/persisted-record change. (reviewed 2026-07-30)
-- `feedback_llm_probe_realistic_context.md`: replays use real contexts, the run's settings and the real code path; temperature 0 = one sample per input. (reviewed 2026-11-11)
+- `feedback_llm_probe_realistic_context.md`: replays use real contexts, the run's settings and the real code path; temperature 0 = one sample per input; the cached previous call counts too (2026-11-21). (reviewed 2026-11-21)
 - `feedback_runs_are_variant_by_design.md`: keep cross-run resemblances family-level. (reviewed 2026-07-09)
 - `feedback_stabilize_before_tuning_signals.md`: stabilize before signal redesign. (reviewed 2026-07-09)
 Reasoning and correction:
