@@ -14,8 +14,9 @@
 
 ---
 
-## Tier 1 — Correctness (147)
+## Tier 1 — Correctness (148)
 
+- [ ] `T1-GW` -- The analysis' diagnostic scan reports a missing evaluation for one that has not run yet in this cycle (17% of scans); the analysis model reports it as a HIGH finding in 34 of 47; filed 2026-11-21 at the user's word
 - [x] `T1-FZ` — The fixture chooser is blind to negation: "exits 0 (no malformed rows)" stages a MALFORMED file and demands 0, so a CORRECT artifact is refused — filed 2026-09-12, caught in the field; FIXED 2026-09-13 by ONE STRUCTURAL CHECK rather than a fourth predicate (the specification states which status each command yields for each input shape, and a built exercise is validated against that)
 - [x] `T1-FY` — The execution probe demanded exit 2 from a WELL-FORMED file and blocked closure four times on a PERFECT artifact; a compound criterion defeated all three guards meant to make it abstain — FIXED 2026-09-11 same day as filing and measured on the real corpus, not invented text: `statusesIn` now counts the status English elides ("..., or 0 if..."), so the existing `codes.size() != 1` abstention fires on its own and NO fourth pattern was added
 - [x] `T1-GD` — An artifact that never launches exits 1, and "exits 1" is a criterion specs routinely state, so a **status-only criterion can PASS against code that ran not one line**. Measured for 19 minutes in run 2026-09-20_09-55-09: no `Main-Class`, `java -jar` died in the launcher, exit status MATCHED the criterion and only the message assertion caught it. **Routing, not a missing check** — T4-DO already built `RunnableJarGuarantee` and it has exactly ONE caller (the closure edge's boot-failure branch); BootGate, BehaviouralClosureVerifier and PackageGate reference it zero times, and those are the criterion-probe path. The invariant "when the artifact never executed, no criterion's verdict is its own" has two partial homes and this gap. Fix must not name an ecosystem's launcher text
